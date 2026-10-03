@@ -1,0 +1,348 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T16:11:59.7979176Z",
+  "title": "Design System: BLADE Playlist Downloader",
+  "extensions": {
+    "breakpoints": [
+      {
+        "value": "640px",
+        "name": "narrow"
+      }
+    ],
+    "motion": [
+      {
+        "value": "2s linear infinite",
+        "name": "progress-scan",
+        "purpose": "Indeterminate progress only; disabled under prefers-reduced-motion: reduce."
+      }
+    ],
+    "shadows": [],
+    "typographyMeta": {
+      "label": {
+        "displayName": "Label",
+        "purpose": "Form labels, messages, choices, links, and file rows."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Primary and archive actions."
+      },
+      "log": {
+        "displayName": "Technical log",
+        "purpose": "Expandable diagnostic text."
+      },
+      "detail": {
+        "displayName": "Detail",
+        "purpose": "Status, limits, and metadata; tabular numerals for quantities."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headings; job titles step down to 15px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading rhythm."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Large balanced heading; narrow screens use 43px."
+      }
+    },
+    "colorMeta": {
+      "background": {
+        "displayName": "Background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#111214"
+      },
+      "surface": {
+        "displayName": "Surface",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#1b1d20"
+      },
+      "ink": {
+        "displayName": "Ink",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#f2f3f4"
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#afb3b9"
+      },
+      "muted": {
+        "displayName": "Muted",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#9298a1"
+      },
+      "rule": {
+        "displayName": "Rule",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#34383e"
+      },
+      "field-border": {
+        "displayName": "Field Border",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#454a52"
+      },
+      "selected-border": {
+        "displayName": "Selected Border",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#626871"
+      },
+      "selected-surface": {
+        "displayName": "Selected Surface",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#24272c"
+      },
+      "button-hover": {
+        "displayName": "Button Hover",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#d6dae0"
+      },
+      "button-active": {
+        "displayName": "Button Active",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#c4c9d1"
+      },
+      "disabled-background": {
+        "displayName": "Disabled Background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#777d86"
+      },
+      "disabled-ink": {
+        "displayName": "Disabled Ink",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.008 260)",
+          "oklch(26% 0.008 260)",
+          "oklch(37% 0.008 260)",
+          "oklch(48% 0.008 260)",
+          "oklch(59% 0.008 260)",
+          "oklch(70% 0.008 260)",
+          "oklch(81% 0.008 260)",
+          "oklch(95% 0.008 260)"
+        ],
+        "canonical": "#16181b"
+      },
+      "error": {
+        "displayName": "Error",
+        "role": "error",
+        "tonalRamp": [
+          "oklch(15% 0.075 30)",
+          "oklch(26% 0.075 30)",
+          "oklch(37% 0.075 30)",
+          "oklch(48% 0.075 30)",
+          "oklch(59% 0.075 30)",
+          "oklch(70% 0.075 30)",
+          "oklch(81% 0.075 30)",
+          "oklch(95% 0.075 30)"
+        ],
+        "canonical": "#ffb9b0"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "html": "<button class=\"ds-action\" type=\"button\">Download <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 4v12m-5-5 5 5 5-5M5 19h14\"/></svg></button>",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "css": ".ds-action{display:inline-flex;align-items:center;justify-content:center;gap:22px;min-height:62px;padding:0 25px;border:0;border-radius:5px;background:var(--ink,#f2f3f4);color:var(--background,#111214);font:600 14px/1.6 Manrope,system-ui,sans-serif;cursor:pointer}.ds-action svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.ds-action:hover{background:#d6dae0}.ds-action:active{background:#c4c9d1}.ds-action:disabled{background:#777d86;color:#16181b;cursor:not-allowed}.ds-action:focus-visible{outline:2px solid var(--ink,#f2f3f4);outline-offset:5px}@media(max-width:640px){.ds-action{min-height:54px;padding:0 20px;justify-content:space-between}}",
+      "description": "The shared download and archive action, with native button states."
+    },
+    {
+      "name": "URL field",
+      "html": "<label class=\"ds-field-label\" for=\"ds-url\">YouTube playlist or video link</label><div class=\"ds-field\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m10 13 4-4M8.5 15.5l-1 1a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m1 1 1-1a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0\"/></svg><input id=\"ds-url\" type=\"url\" placeholder=\"https://www.youtube.com/playlist?list=…\"></div>",
+      "kind": "input",
+      "refersTo": "url-field",
+      "css": ".ds-field-label{display:block;margin-bottom:12px;color:var(--secondary,#afb3b9);font:400 13px/1.6 Manrope,system-ui,sans-serif}.ds-field{display:flex;align-items:center;gap:14px;min-width:0;height:62px;padding:0 20px;border:1px solid #454a52;border-radius:5px;background:var(--surface,#1b1d20)}.ds-field:focus-within{border-color:var(--ink,#f2f3f4)}.ds-field svg{width:20px;height:20px;flex-shrink:0;fill:none;stroke:var(--secondary,#afb3b9);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.ds-field input{width:100%;min-width:0;height:100%;border:0;outline:none;background:transparent;color:var(--ink,#f2f3f4);caret-color:var(--ink,#f2f3f4);font:400 14px/1.6 Manrope,system-ui,sans-serif}.ds-field input::placeholder{color:var(--muted,#9298a1);opacity:1}.ds-field input[aria-invalid=true]{color:var(--error,#ffb9b0)}@media(max-width:640px){.ds-field{height:58px;padding:0 16px}.ds-field input{font-size:13px}}",
+      "description": "A labeled, inset URL input on graphite, with a clear focus boundary."
+    },
+    {
+      "name": "Format choice",
+      "html": "<fieldset class=\"ds-formats\"><legend class=\"ds-visually-hidden\">Download format</legend><label><input type=\"radio\" name=\"ds-mode\" value=\"video\" checked><span>Video<span class=\"ds-format-detail\"> / 1080p</span></span></label><label><input type=\"radio\" name=\"ds-mode\" value=\"audio\"><span>Audio<span class=\"ds-format-detail\"> / MP3</span></span></label></fieldset>",
+      "kind": "chip",
+      "refersTo": "format-option",
+      "css": ".ds-formats{display:flex;gap:8px;border:0;margin:0;padding:0;font:400 13px/1.6 Manrope,system-ui,sans-serif}.ds-formats label{position:relative;display:flex;align-items:center;cursor:pointer}.ds-formats input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}.ds-formats label>span{display:block;padding:9px 14px;border:1px solid transparent;border-radius:5px;color:var(--secondary,#afb3b9)}.ds-formats input:checked+span{border-color:#626871;color:var(--ink,#f2f3f4);background:#24272c}.ds-formats input:hover+span{color:var(--ink,#f2f3f4)}.ds-formats input:focus-visible+span{outline:2px solid var(--ink,#f2f3f4);outline-offset:3px}.ds-format-detail{color:var(--secondary,#afb3b9);margin-left:3px}.ds-visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}",
+      "description": "A native radio group, with an outlined checked format."
+    },
+    {
+      "name": "Source navigation",
+      "html": "<a class=\"ds-source\" href=\"https://github.com/OutBlade/youtube-playlist-downloader\">View source <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M7 17 17 7M7 7h10v10\"/></svg></a>",
+      "kind": "nav",
+      "refersTo": "source-link",
+      "css": ".ds-source{display:inline-flex;gap:8px;align-items:center;text-decoration:none;color:var(--secondary,#afb3b9);font:400 13px/1.6 Manrope,system-ui,sans-serif}.ds-source svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.ds-source:hover{color:var(--ink,#f2f3f4)}.ds-source:focus-visible{outline:2px solid var(--ink,#f2f3f4);outline-offset:5px}@media(max-width:640px){.ds-source{font-size:12px}}",
+      "description": "A quiet source link with a compact stroke arrow."
+    },
+    {
+      "name": "Progress cut",
+      "html": "<progress class=\"ds-progress\" value=\"65\" max=\"100\" aria-label=\"Current file download progress\"></progress>",
+      "kind": "custom",
+      "refersTo": "progress-line",
+      "css": ".ds-progress{display:block;appearance:none;border:0;width:100%;height:3px;margin:20px 0;background:var(--rule,#34383e);overflow:hidden;color:var(--ink,#f2f3f4);accent-color:var(--ink,#f2f3f4)}.ds-progress::-webkit-progress-bar{background:var(--rule,#34383e)}.ds-progress::-webkit-progress-value{background:var(--ink,#f2f3f4)}.ds-progress::-moz-progress-bar{background:var(--ink,#f2f3f4)}.ds-progress:indeterminate::-webkit-progress-bar{background:linear-gradient(90deg,var(--rule,#34383e) 0 35%,var(--ink,#f2f3f4) 35% 55%,var(--rule,#34383e) 55% 100%);background-size:200% 100%;animation:ds-progress-scan 2s linear infinite}@keyframes ds-progress-scan{from{background-position:100% 0}to{background-position:-100% 0}}@media(prefers-reduced-motion:reduce){.ds-progress{animation:none!important}.ds-progress::-webkit-progress-bar{animation:none!important}}",
+      "description": "Native determinate progress with a fine monochrome fill."
+    },
+    {
+      "html": "<ul class=\"ds-files\"><li><a href=\"#\">01 - Example video.mp4</a><span>24.8 MB</span></li></ul>",
+      "description": "Wrapping filename and quiet tabular size on an open row.",
+      "css": ".ds-files{list-style:none;padding:0;margin:12px 0;font:400 13px/1.6 Manrope,system-ui,sans-serif;color:var(--ink,#f2f3f4)}.ds-files li{border-bottom:1px solid var(--rule,#34383e);padding:13px 0;display:flex;justify-content:space-between;gap:16px;align-items:center}.ds-files a{color:inherit;overflow-wrap:anywhere;text-decoration:none;min-width:0;text-underline-offset:5px}.ds-files a:hover{text-decoration:underline}.ds-files a:focus-visible{outline:2px solid var(--ink,#f2f3f4);outline-offset:5px}.ds-files span{white-space:nowrap;color:var(--muted,#9298a1);font-size:12px;font-variant-numeric:tabular-nums}",
+      "name": "Delivered file row",
+      "kind": "custom"
+    }
+  ],
+  "narrative": {
+    "donts": [
+      "Don't replace the supplied wordmark with a text approximation.",
+      "Don't add neon accents or decorative gradients to the visual world.",
+      "Don't add shadows to the flat control system.",
+      "Don't treat the error color as a decorative accent."
+    ],
+    "rules": [
+      {
+        "section": "colors",
+        "body": "Preserve the neutral visual hierarchy; reserve the warm error tone for error states.",
+        "name": "The Monochrome Authority Rule"
+      },
+      {
+        "section": "elevation",
+        "body": "Use tonal surfaces and fine boundaries to distinguish controls; retain the flat appearance of the built system.",
+        "name": "The Flat Surface Rule"
+      }
+    ],
+    "dos": [
+      "Do preserve the actual BLADE GIF artwork.",
+      "Do use Manrope regular and semibold for the established hierarchy.",
+      "Do keep controls visibly focused and format selection unambiguous.",
+      "Do use thin graphite rules and the slim progress line for structural separation.",
+      "Do preserve the stacked narrow-screen form and wrapping filenames."
+    ],
+    "northStar": "The Independent Record-label Sleeve",
+    "overview": "Charcoal, a white wordmark, precise pale lettering, and quiet graphite rules establish the visual character. The actual BLADE GIF remains the identity authority; its cropped horizontal silhouette sets the tone without adding ornamental imagery.\n\nThe system is spacious around major transitions and compact within controls. Its character is restrained and practical: broad rectangular actions, softly eased corners, straightforward language, and a fine horizontal progress cut. The visual hierarchy comes from size, tone, and spacing.",
+    "keyCharacteristics": [
+      "Charcoal surfaces and pale monochrome controls.",
+      "Self-hosted Manrope at regular and semibold weights.",
+      "Thin rules and a slim progress line.",
+      "Broad rectangular controls with gently eased corners.",
+      "Clear focus and state changes."
+    ]
+  }
+}

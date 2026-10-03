@@ -11,3 +11,17 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    environment:
+      TRUST_PROXY: "1"
+  # Public HTTPS address without an account: docker compose --profile public up -d
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: [public]
+    command: tunnel --no-autoupdate --url http://downloader:8080
+    depends_on:
+      - downloader
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

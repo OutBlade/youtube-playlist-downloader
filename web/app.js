@@ -112,7 +112,7 @@ async function initialize() {
     ready = health.ready === true;
     notice(ready ? 'Ready when you are.' : 'Downloads are temporarily unavailable. Please try again later.');
   } catch {
-    notice('Website preview — downloads will be available after server deployment.');
+    notice('Design preview only. Run the server to download.');
   }
   lock(false);
   try {

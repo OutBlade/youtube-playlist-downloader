@@ -37,6 +37,16 @@ void reply(httplib::Response& res, int status, const json& data) {
     res.set_content(data.dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
     res.set_header("Cache-Control", "no-store");
 }
+// Behind a reverse proxy every request arrives from the proxy's address.
+std::string client(const httplib::Request& req, bool proxied) {
+    if (!proxied) return req.remote_addr;
+    auto address = req.get_header_value("CF-Connecting-IP");
+    if (address.empty()) {
+        address = req.get_header_value("X-Forwarded-For");
+        address.erase(0, address.find_last_of(", ") + 1);
+    }
+    return address.empty() ? req.remote_addr : address;
+}
 std::string identifier() {
     std::random_device random;
     const char* digits = "0123456789abcdef";
@@ -78,6 +88,7 @@ int main(int argc, char** argv) {
         std::map<std::string, std::shared_ptr<Job>> jobs;
         std::map<std::string, Clock::time_point> visitors;
         bool busy = false;
+        const bool proxied = setting("TRUST_PROXY", "0") == "1";
         httplib::Server server;
         server.set_payload_max_length(4096);
         server.set_read_timeout(15, 0);
@@ -121,7 +132,8 @@ int main(int argc, char** argv) {
                 else ++it;
             }
             if (busy) { reply(res, 429, {{"error", "The downloader is busy. Try again in a moment."}}); return; }
-            if (visitors.count(req.remote_addr)) {
+            const auto visitor = client(req, proxied);
+            if (visitors.count(visitor)) {
                 reply(res, 429, {{"error", "Please wait a minute before starting another download."}}); return;
             }
             if (jobs.size() >= 100 || fs::space(root).available < 4ull * 1024 * 1024 * 1024) {
@@ -131,7 +143,7 @@ int main(int argc, char** argv) {
             job->id = identifier(); job->folder = root / job->id;
             fs::create_directory(job->folder);
             jobs[job->id] = job;
-            visitors[req.remote_addr] = Clock::now(); busy = true;
+            visitors[visitor] = Clock::now(); busy = true;
             std::thread([&, job, url, mode] {
                 try {
                     std::vector<std::string> args{engine, "--ignore-config", "--no-plugin-dirs",
@@ -142,17 +154,26 @@ int main(int argc, char** argv) {
                         "--output", "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
                     if (mode == "audio") args.insert(args.end(), {"--format", "bestaudio/best",
                         "--extract-audio", "--audio-format", "mp3"});
-                    else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b"});
+                    else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b",
+                        "--format-sort", "vcodec:h264,res:1080,acodec:m4a", "--merge-output-format", "mp4"});
                     args.insert(args.end(), {"--", url});
                     const int code = run(args, job->folder / "progress.log", 1800);
                     std::vector<fs::path> files;
                     uint64_t total = 0;
-                    for (const auto& file : fs::directory_iterator(job->folder)) {
-                        const auto ext = file.path().extension().string();
-                        if (file.is_regular_file() && (ext == ".mp3" || ext == ".mp4" || ext == ".webm" ||
-                            ext == ".mkv" || ext == ".m4a" || ext == ".opus")) {
-                            total += file.file_size(); files.push_back(file.path());
+                    std::vector<fs::path> found;
+                    for (const auto& file : fs::directory_iterator(job->folder))
+                        if (file.is_regular_file()) found.push_back(file.path());
+                    for (auto path : found) {
+                        const auto ext = path.extension().string();
+                        if (ext != ".mp3" && ext != ".mp4" && ext != ".webm" && ext != ".mkv" &&
+                            ext != ".m4a" && ext != ".opus") continue;
+                        // A single video has no playlist position.
+                        const auto name = path.filename().u8string();
+                        if (name.rfind("NA - ", 0) == 0) {
+                            const auto renamed = job->folder / fs::u8path(name.substr(5));
+                            fs::rename(path, renamed); path = renamed;
                         }
+                        total += fs::file_size(path); files.push_back(path);
                     }
                     std::sort(files.begin(), files.end());
                     if (files.empty()) throw std::runtime_error(code == 124 ?

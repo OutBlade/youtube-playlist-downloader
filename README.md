@@ -12,23 +12,37 @@ For public hosting, run the complete app on a server using Docker:
 docker compose up --build -d
 ```
 
-Open `http://localhost:8080`. Put your server's HTTPS reverse proxy in front of
-`127.0.0.1:8080` and preserve its original Host header. The container installs
-yt-dlp, ffmpeg, and Deno; visitors need only their browser.
+Open `http://localhost:8080`. The container installs yt-dlp, ffmpeg, and Deno;
+visitors need only their browser.
+
+To share it publicly without an account or a domain, start the bundled
+Cloudflare quick tunnel and read the HTTPS address from its log:
+
+```sh
+docker compose --profile public up --build -d
+docker compose --profile public logs tunnel
+```
+
+The address works while the computer and Docker are running and changes
+whenever the tunnel restarts. Downloads then leave from your own connection,
+which YouTube treats better than most hosting providers' addresses. For a
+permanent address, put your own HTTPS reverse proxy in front of
+`127.0.0.1:8080` and preserve its original Host header. `TRUST_PROXY=1`
+(set in `compose.yaml`) makes the per-visitor limit use the address reported
+by the proxy; leave it unset when the server is reached directly.
 
 The website's static files are in `web/`. [Preview the design on GitHub Pages](https://outblade.github.io/youtube-playlist-downloader/),
-but **Pages cannot run the downloader backend**. A static preview clearly says
-that downloads need server deployment and disables the Download button.
-Public backend hosting is prepared; no host has been provisioned.
+but **Pages cannot run the downloader backend**, so the preview disables the
+Download button.
 
 To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
 `ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.
 By default it listens on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to expose it to a
 hosting platform. The server honors `PORT`, `WEB_ROOT`, `DOWNLOAD_ROOT`,
-`YTPLAYLIST_ENGINE`, `FFMPEG`, and `DENO` environment variables.
+`YTPLAYLIST_ENGINE`, `FFMPEG`, `DENO`, and `TRUST_PROXY` environment variables.
 
 The public server processes one playlist at a time, with a maximum of 25 items,
-75 MiB per selected stream, 1080p video, a 30-minute job timeout, and 2 GiB per
+75 MiB per selected stream, 1080p MP4 video (H.264 where available), a 30-minute job timeout, and 2 GiB per
 ZIP. It requires at least 4 GiB free before accepting a job. One download start
 per client IP per minute is allowed; a reverse proxy may group visitors under
 one IP. Files are temporary, retained for up to one hour and removed on restart.
