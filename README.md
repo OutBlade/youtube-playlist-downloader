@@ -43,6 +43,11 @@ hosting platform. The server honors `PORT`, `WEB_ROOT`, `DOWNLOAD_ROOT`,
 `YTPLAYLIST_ENGINE`, `FFMPEG`, `DENO`, `TRUST_PROXY`, and `ALLOWED_ORIGIN`
 environment variables.
 
+Playlist items are downloaded several at a time: `WORKERS` sets how many
+yt-dlp processes run at once (5 by default, 8 in `compose.yaml`, at most 8).
+MP3 files carry the title, uploader, playlist name as album, track number and
+the YouTube thumbnail as cover art.
+
 The public server processes one playlist at a time, with a maximum of 25 items,
 75 MiB per selected stream, 1080p MP4 video (H.264 where available), a 30-minute job timeout, and 2 GiB per
 ZIP. It requires at least 4 GiB free before accepting a job. One download start

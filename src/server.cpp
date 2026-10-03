@@ -32,12 +32,22 @@ std::string setting(const char* name, const std::string& fallback) {
     const char* value = std::getenv(name);
     return value && *value ? value : fallback;
 }
-std::string read_tail(const fs::path& path) {
+std::string read_tail(const fs::path& path, std::streamoff limit) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file) return {};
     auto size = file.tellg();
-    file.seekg(size > 12000 ? size - std::streamoff(12000) : std::streampos(0));
+    file.seekg(size > limit ? size - limit : std::streampos(0));
     return std::string(std::istreambuf_iterator<char>(file), {});
+}
+// One log when the job runs as a single process, one per worker otherwise.
+std::vector<fs::path> logs(const fs::path& folder) {
+    std::vector<fs::path> found;
+    if (fs::exists(folder / "progress.log")) found.push_back(folder / "progress.log");
+    for (int worker = 0; worker < 8; ++worker) {
+        const auto path = folder / ("progress-" + std::to_string(worker) + ".log");
+        if (fs::exists(path)) found.push_back(path);
+    }
+    return found;
 }
 void reply(httplib::Response& res, int status, const json& data) {
     res.status = status;
@@ -52,7 +62,8 @@ json item_states(const Job& job) {
         items[i]["state"] = "queued";
         index[items[i]["id"].get<std::string>()] = i;
     }
-    std::ifstream log(job.folder / "progress.log", std::ios::binary);
+    for (const auto& path : logs(job.folder)) {
+    std::ifstream log(path, std::ios::binary);
     json* current = nullptr;
     for (std::string line; std::getline(log, line);) {
         const bool error = line.rfind("ERROR: [youtube] ", 0) == 0;
@@ -75,11 +86,14 @@ json item_states(const Job& job) {
             const auto digit = line.find_first_not_of(' ', 11);
             if (line.find("larger than max-filesize") != std::string::npos) {
                 (*current)["state"] = "skipped"; (*current)["note"] = "Too large";
+            } else if (line.find("Finished downloading playlist") != std::string::npos) {
+                if ((*current)["state"] == "active") (*current)["state"] = "done";
             } else if (digit != std::string::npos && std::isdigit(static_cast<unsigned char>(line[digit])) &&
                 line.find('%') != std::string::npos) {
                 (*current)["percent"] = std::atof(line.c_str() + digit);
             }
         }
+    }
     }
     if (!finished(job)) return items;
     for (auto& item : items) {
@@ -147,6 +161,8 @@ int main(int argc, char** argv) {
         const bool proxied = setting("TRUST_PROXY", "0") == "1";
         // A static copy of the website on another origin may use this server.
         const auto partner = setting("ALLOWED_ORIGIN", "");
+        // Playlist items are downloaded by this many yt-dlp processes at once.
+        const size_t parallel = static_cast<size_t>(std::clamp(std::stoi(setting("WORKERS", "5")), 1, 8));
         httplib::Server server;
         server.set_payload_max_length(4096);
         server.set_read_timeout(15, 0);
@@ -247,18 +263,42 @@ int main(int argc, char** argv) {
                         std::lock_guard<std::mutex> guard(mutex);
                         job->items = items; job->title = title; job->state = "downloading";
                     }
-                    std::vector<std::string> args{engine, "--ignore-config", "--no-plugin-dirs",
-                        "--yes-playlist", "--no-abort-on-error", "--newline", "--no-colors",
-                        "--restrict-filenames", "--concurrent-fragments", "8", "--socket-timeout", "20",
-                        "--retries", "3", "--fragment-retries", "3", "--playlist-end", "25",
-                        "--max-filesize", "75M", "--paths", job->folder.u8string(),
-                        "--output", "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
-                    if (mode == "audio") args.insert(args.end(), {"--format", "bestaudio/best",
-                        "--extract-audio", "--audio-format", "mp3"});
-                    else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b",
-                        "--format-sort", "vcodec:h264,res:1080,acodec:m4a", "--merge-output-format", "mp4"});
-                    args.insert(args.end(), {"--", url});
-                    const int code = run(args, job->folder / "progress.log", 1800, &job->cancel);
+                    const size_t workers = std::max<size_t>(1, std::min(parallel, items.size()));
+                    auto arguments = [&](size_t worker) {
+                        std::vector<std::string> args{engine, "--ignore-config", "--no-plugin-dirs",
+                            "--yes-playlist", "--no-abort-on-error", "--newline", "--no-colors",
+                            "--restrict-filenames", "--concurrent-fragments", workers > 1 ? "4" : "8",
+                            "--socket-timeout", "20", "--retries", "3", "--fragment-retries", "3",
+                            "--max-filesize", "75M", "--paths", job->folder.u8string(),
+                            "--output", "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
+                        if (workers > 1) {
+                            // Each worker takes every workers-th item of the listed playlist.
+                            std::string picks;
+                            for (size_t i = worker; i < items.size(); i += workers)
+                                picks += (picks.empty() ? "" : ",") + std::to_string(i + 1);
+                            args.insert(args.end(), {"--playlist-items", picks});
+                        } else args.insert(args.end(), {"--playlist-end", "25"});
+                        if (mode == "audio") args.insert(args.end(), {"--format", "bestaudio/best",
+                            "--extract-audio", "--audio-format", "mp3", "--embed-metadata",
+                            "--embed-thumbnail", "--convert-thumbnails", "jpg",
+                            "--parse-metadata", "%(playlist_title|)s:%(meta_album)s",
+                            "--parse-metadata", "%(playlist_index|)s:%(meta_track)s"});
+                        else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b",
+                            "--format-sort", "vcodec:h264,res:1080,acodec:m4a", "--merge-output-format", "mp4"});
+                        args.insert(args.end(), {"--", url});
+                        return args;
+                    };
+                    std::vector<int> codes(workers, 1);
+                    std::vector<std::thread> pool;
+                    for (size_t worker = 0; worker < workers; ++worker) pool.emplace_back([&, worker] {
+                        try {
+                            codes[worker] = run(arguments(worker), job->folder / (workers > 1 ?
+                                "progress-" + std::to_string(worker) + ".log" : "progress.log"), 1800, &job->cancel);
+                        } catch (const std::exception&) {}
+                    });
+                    for (auto& thread : pool) thread.join();
+                    int code = 0;
+                    for (const int result : codes) if (result == 124 || (result && !code)) code = result;
                     if (job->cancel) throw std::runtime_error("Download cancelled.");
                     std::vector<fs::path> files;
                     uint64_t total = 0;
@@ -309,13 +349,16 @@ int main(int argc, char** argv) {
             if (Clock::now() - job->created > std::chrono::hours(1)) {
                 reply(res, 410, {{"error", "This download has expired. Start a new one."}}); return;
             }
+            std::string log;
+            const auto sources = logs(job->folder);
+            for (const auto& path : sources) log += read_tail(path, 12000 / static_cast<std::streamoff>(sources.size()));
             json files = json::array();
             for (size_t i = 0; i < job->files.size(); ++i) files.push_back({
                 {"name", job->files[i].filename().u8string()}, {"bytes", fs::file_size(job->files[i])},
                 {"url", "/api/jobs/" + job->id + "/files/" + std::to_string(i)}});
             reply(res, 200, {{"id", job->id}, {"state", job->state}, {"message", job->message},
                 {"title", job->title}, {"items", item_states(*job)},
-                {"log", read_tail(job->folder / "progress.log")}, {"files", files},
+                {"log", log}, {"files", files},
                 {"archive", files.empty() ? "" : "/api/jobs/" + job->id + "/archive"}});
         });
         server.Post(R"(/api/jobs/([a-f0-9]{32})/cancel)", [&](const httplib::Request& req, httplib::Response& res) {
