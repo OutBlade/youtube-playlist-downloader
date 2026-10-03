@@ -1,0 +1,5 @@
+/build/
+/downloads/
+__pycache__/
+*.exe
+*.part
