@@ -20,7 +20,7 @@ Make the existing simple playlist downloader usable as a website, without requir
 
 ## Capabilities and Constraints
 
-Video and MP3 downloads, concurrent fragments, playlist ordering, progress and file delivery. A public server must run the C++ backend, yt-dlp, ffmpeg, and a supported JavaScript runtime. GitHub Pages alone cannot execute downloads. Hosting destination is pending the user's answer. Existing CLI remains available.
+Video and MP3 downloads, concurrent fragments, playlist ordering, progress and file delivery. A public server must run the C++ backend, yt-dlp, ffmpeg, and a supported JavaScript runtime. GitHub Pages serves the page at a fixed address; downloads run on the owner's computer in Docker, reached through a Cloudflare quick tunnel whose address `start-public.ps1` publishes to the `backend` branch. Existing CLI remains available.
 
 ## Brand Commitments
 
@@ -28,7 +28,7 @@ Minimal, clean design fitting the user's supplied BLADE wordmark: `C:/Users/Semi
 
 ## Evidence on Hand
 
-Published OutBlade/youtube-playlist-downloader repository, v1.0.0 binaries, and passing cross-platform CLI tests. No measured speed claims or verified live YouTube download yet.
+Published OutBlade/youtube-playlist-downloader repository, v1.0.0 binaries, and passing cross-platform CLI tests. Live playlist, single-video and MP3 downloads verified through the public address. No measured speed claims.
 
 ## Product Principles
 

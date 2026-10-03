@@ -8,9 +8,15 @@ int finish(const std::vector<std::string>& args) {
     if (std::getenv("YTPLAYLIST_TEST_MEDIA")) {
         for (size_t i = 0; i + 1 < args.size(); ++i) {
             if (args[i] == "--paths") {
-                std::ofstream media(std::filesystem::u8path(args[i + 1]) / "001 - test.mp3", std::ios::binary);
+                std::ofstream media(std::filesystem::u8path(args[i + 1]) / "001 - test [abc].mp3", std::ios::binary);
                 media << "test media payload";
-                std::cout << "[download] Downloading item 1 of 1\n[download] 100.0%\n" << std::flush;
+                std::cout << "[youtube] abc: Downloading webpage\n[download] Downloading item 1 of 1\n"
+                             "[download] 100.0%\n" << std::flush;
+            }
+            if (args[i] == "--print-to-file" && i + 2 < args.size()) {
+                std::ofstream list(std::filesystem::u8path(args[i + 2]), std::ios::binary);
+                list << R"({"id": "abc", "title": "Test", "duration": 19, "playlist_title": "List"})" << '\n'
+                     << R"({"id": "gone", "title": "Missing", "duration": null, "playlist_title": "List"})" << '\n';
             }
         }
     }

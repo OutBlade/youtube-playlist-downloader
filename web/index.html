@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111214">
   <meta name="description" content="Download a YouTube playlist as video or MP3. A simple, open-source tool by BLADE.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="BLADE Playlist downloader">
+  <meta property="og:description" content="Paste a YouTube link, pick video or MP3, and save the whole playlist in one download.">
+  <meta property="og:image" content="https://outblade.github.io/youtube-playlist-downloader/assets/blade-logo.gif">
+  <meta name="twitter:card" content="summary">
   <title>BLADE — Playlist downloader</title>
   <link rel="icon" href="assets/blade-logo.gif">
   <link rel="stylesheet" href="styles.css">
@@ -19,8 +24,16 @@
     </header>
     <main id="downloader">
       <section class="workspace" aria-labelledby="page-title">
-        <h1 id="page-title">Your playlist.<br><span>Ready to go.</span></h1>
-        <p class="intro">Paste a YouTube link. Pick your format.<br class="mobile-break"> Get everything in one download.</p>
+        <div class="hero">
+          <div>
+            <h1 id="page-title">Your playlist.<br><span>Ready to go.</span></h1>
+            <p class="intro">Paste a YouTube link. Pick your format.<br class="mobile-break"> Get everything in one download.</p>
+          </div>
+          <div id="sleeve" class="sleeve-stage" aria-hidden="true">
+            <div class="record"><div class="record-label"></div></div>
+            <div class="sleeve"><img src="assets/blade-logo.gif" alt="" width="1200" height="1200"><div id="sleeve-cover" class="sleeve-cover"></div></div>
+          </div>
+        </div>
         <form id="download-form" novalidate>
           <label for="playlist-url" class="field-label">YouTube playlist or video link</label>
           <div class="input-row">
@@ -42,12 +55,21 @@
       </section>
       <section class="downloads" aria-labelledby="downloads-title">
         <div class="section-heading"><h2 id="downloads-title">Your download</h2><span id="download-state" class="state-label">No active download</span></div>
-        <div id="empty-state" class="empty-state"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 8v18m-7-7 7 7 7-7M8 30v3h24v-3"/></svg><p>Nothing in the queue.<span>Your playlist will appear here.</span></p></div>
+        <div id="empty-state" class="empty-state">
+          <ol class="sheet" aria-hidden="true">
+            <li class="frame is-blank"><div class="frame-shot"></div><div class="frame-meta"><span class="frame-index">01</span></div></li>
+            <li class="frame is-blank"><div class="frame-shot"></div><div class="frame-meta"><span class="frame-index">02</span></div></li>
+            <li class="frame is-blank"><div class="frame-shot"></div><div class="frame-meta"><span class="frame-index">03</span></div></li>
+            <li class="frame is-blank"><div class="frame-shot"></div><div class="frame-meta"><span class="frame-index">04</span></div></li>
+          </ol>
+          <p>Nothing in the queue.<span>Your playlist will appear here.</span></p>
+        </div>
         <div id="job-panel" class="job-panel" hidden>
           <div class="job-summary"><h3 id="job-title">Preparing your playlist</h3><span id="job-detail">Getting started…</span></div>
-          <progress id="job-progress" max="100" aria-label="Current file download progress"></progress>
+          <progress id="job-progress" max="100" aria-label="Download progress"></progress>
           <p id="job-message" class="job-message" role="status"></p>
           <a id="save-archive" class="primary-button save-button" hidden download>Download ZIP <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></a>
+          <ol id="item-sheet" class="sheet" aria-label="Playlist items"></ol>
           <ul id="file-list" class="file-list"></ul>
           <details id="progress-details"><summary>Download details</summary><pre id="job-log"></pre></details>
         </div>

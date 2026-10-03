@@ -27,7 +27,7 @@ class Web(unittest.TestCase):
         self.base = f'http://127.0.0.1:{port}'
         env = dict(os.environ, HOST='127.0.0.1', PORT=str(port), WEB_ROOT=WEB,
                    DOWNLOAD_ROOT=str(Path(self.temp.name) / 'downloads'),
-                   YTPLAYLIST_ENGINE=ENGINE, FFMPEG=ENGINE, DENO=ENGINE,
+                   YTPLAYLIST_ENGINE=ENGINE, ALLOWED_ORIGIN='https://site.example', FFMPEG=ENGINE, DENO=ENGINE,
                    YTPLAYLIST_TEST_LOG=str(Path(self.temp.name) / 'args.txt'),
                    YTPLAYLIST_TEST_MEDIA='1', YTPLAYLIST_TEST_EXIT='0')
         self.log = open(Path(self.temp.name) / 'server.log', 'w')
@@ -90,16 +90,29 @@ class Web(unittest.TestCase):
         self.assertEqual(job['state'], 'complete', job)
         self.assertIn('100.0%', job['log'])
         self.assertEqual(len(job['files']), 1)
+        self.assertEqual(job['title'], 'List')
+        self.assertEqual([(item['id'], item['state'], item.get('file')) for item in job['items']],
+                         [('abc', 'done', 0), ('gone', 'failed', None)])
         _, content, headers = self.request(job['archive'])
         self.assertIn('attachment', headers['Content-Disposition'])
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             self.assertIsNone(archive.testzip())
-            self.assertEqual(archive.read('001 - test.mp3'), b'test media payload')
+            self.assertEqual(archive.read('001 - test [abc].mp3'), b'test media payload')
         _, media, _ = self.request(job['files'][0]['url'])
         self.assertEqual(media, b'test media payload')
         with self.assertRaises(HTTPError) as caught:
             self.request('/api/jobs', {'url': 'https://youtube.com/watch?v=test', 'mode': 'audio'})
         self.assertEqual(caught.exception.code, 429)
+
+
+    def test_static_copy_on_the_allowed_origin_may_start_downloads(self):
+        headers = {'Origin': 'https://site.example', 'Sec-Fetch-Site': 'cross-site',
+                   'Content-Type': 'application/json'}
+        code, _, response = self.request('/api/jobs', {'url': 'https://youtu.be/test', 'mode': 'audio'}, headers)
+        self.assertEqual(code, 202)
+        self.assertEqual(response['Access-Control-Allow-Origin'], 'https://site.example')
+        _, _, response = self.request('/api/health')
+        self.assertIsNone(response['Access-Control-Allow-Origin'])
 
 
 if __name__ == '__main__':

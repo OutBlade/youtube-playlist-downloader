@@ -99,7 +99,7 @@ components:
 
 **Creative North Star: "The Independent Record-label Sleeve"**
 
-Charcoal, a white wordmark, precise pale lettering, and quiet graphite rules establish the visual character. The actual BLADE GIF remains the identity authority; its cropped horizontal silhouette sets the tone without adding ornamental imagery.
+Charcoal, a white wordmark, precise pale lettering, and quiet graphite rules establish the visual character. The actual BLADE GIF remains the identity authority; its cropped horizontal silhouette sets the tone. Imagery comes from the content itself: the playlist's own thumbnails.
 
 The system is spacious around major transitions and compact within controls. Its character is restrained and practical: broad rectangular actions, softly eased corners, straightforward language, and a fine horizontal progress cut. The visual hierarchy comes from size, tone, and spacing.
 
@@ -133,7 +133,7 @@ Pale neutrals sit on charcoal with graphite separators; a warm error tone is res
 
 The error token is a functional warm exception to the neutral palette, not a promotional accent.
 
-**The Monochrome Authority Rule.** Preserve the neutral visual hierarchy; reserve the warm error tone for error states.
+**The Monochrome Authority Rule.** Preserve the neutral visual hierarchy; reserve the warm error tone for error states. The only other colour on the page belongs to thumbnails of saved items.
 
 ## Typography
 
@@ -192,6 +192,14 @@ Radio choices use compact rectangular labels with transparent default boundaries
 ### Navigation
 
 Source and footer links pair quiet text with small stroke SVG arrows. Hover changes the text to ink; keyboard focus uses the shared outline. The source link remains visible on mobile and steps down to (12px). The footer stacks vertically on narrow screens.
+
+### Sleeve and record
+
+Beside the heading on wide screens (hidden below 960px) sits a square black sleeve carrying the unaltered BLADE artwork, with a grooved record behind it. During a download the sleeve shows the playlist's first four thumbnails (one for a single video) and the record slides out in step with overall progress while its label turns. It is decorative and hidden from assistive technology; the download region carries the same state as text.
+
+### Contact sheet
+
+Playlist items appear as a grid of 16:9 thumbnails (minimum 210px columns, two columns on narrow screens) with a two-digit position, duration or status, and a two-line title. Colour is the state signal: queued frames are dim greyscale, the active frame is bright greyscale with the progress line along its lower edge, saved frames develop into full colour (0.9s, exponential ease-out), and unavailable frames stay dark with their reason in place of the duration. A saved frame is a link to its file and shows a small ink save mark. The empty state is the same sheet with four blank outlined frames.
 
 ### Download progress and file delivery
 

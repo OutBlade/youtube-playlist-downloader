@@ -13,6 +13,7 @@ services:
       - ALL
     environment:
       TRUST_PROXY: "1"
+      ALLOWED_ORIGIN: "https://outblade.github.io"
   # Public HTTPS address without an account: docker compose --profile public up -d
   tunnel:
     image: cloudflare/cloudflared:latest

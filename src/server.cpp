@@ -5,6 +5,7 @@
 #include "json.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -15,12 +16,16 @@
 using json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 struct Job {
-    std::string id, state = "downloading", message;
+    std::string id, state = "reading", message, title;
     fs::path folder;
     std::vector<fs::path> files;
+    json items = json::array();
     Clock::time_point created = Clock::now();
     int code = -1;
 };
+bool finished(const Job& job) {
+    return job.state == "complete" || job.state == "partial" || job.state == "failed";
+}
 std::string setting(const char* name, const std::string& fallback) {
     const char* value = std::getenv(name);
     return value && *value ? value : fallback;
@@ -36,6 +41,55 @@ void reply(httplib::Response& res, int status, const json& data) {
     res.status = status;
     res.set_content(data.dump(-1, ' ', false, json::error_handler_t::replace), "application/json");
     res.set_header("Cache-Control", "no-store");
+}
+// Item states are read from the downloader's own output.
+json item_states(const Job& job) {
+    json items = job.items;
+    std::map<std::string, size_t> index;
+    for (size_t i = 0; i < items.size(); ++i) {
+        items[i]["state"] = "queued";
+        index[items[i]["id"].get<std::string>()] = i;
+    }
+    std::ifstream log(job.folder / "progress.log", std::ios::binary);
+    json* current = nullptr;
+    for (std::string line; std::getline(log, line);) {
+        const bool error = line.rfind("ERROR: [youtube] ", 0) == 0;
+        if (error || line.rfind("[youtube] ", 0) == 0) {
+            const size_t start = error ? 17 : 10;
+            const auto end = line.find(": ", start);
+            if (end == std::string::npos) continue;
+            const auto found = index.find(line.substr(start, end - start));
+            if (found == index.end()) continue;
+            auto& item = items[found->second];
+            if (error) {
+                item["state"] = "failed";
+                item["note"] = line.find("confirm your age") != std::string::npos ? "Age-restricted" :
+                    line.find("rivate") != std::string::npos ? "Private" : "Unavailable";
+            } else if (current != &item) {
+                if (current && (*current)["state"] == "active") (*current)["state"] = "done";
+                current = &item; item["state"] = "active";
+            }
+        } else if (current && line.rfind("[download] ", 0) == 0) {
+            const auto digit = line.find_first_not_of(' ', 11);
+            if (line.find("larger than max-filesize") != std::string::npos) {
+                (*current)["state"] = "skipped"; (*current)["note"] = "Too large";
+            } else if (digit != std::string::npos && std::isdigit(static_cast<unsigned char>(line[digit])) &&
+                line.find('%') != std::string::npos) {
+                (*current)["percent"] = std::atof(line.c_str() + digit);
+            }
+        }
+    }
+    if (!finished(job)) return items;
+    for (auto& item : items) {
+        const auto tag = "[" + item["id"].get<std::string>() + "].";
+        for (size_t i = 0; i < job.files.size(); ++i)
+            if (job.files[i].filename().u8string().find(tag) != std::string::npos) item["file"] = i;
+        if (item.contains("file")) item["state"] = "done";
+        else if (item["state"] != "skipped" && item["state"] != "failed") {
+            item["state"] = "failed"; item["note"] = "Unavailable";
+        }
+    }
+    return items;
 }
 // Behind a reverse proxy every request arrives from the proxy's address.
 std::string client(const httplib::Request& req, bool proxied) {
@@ -89,22 +143,37 @@ int main(int argc, char** argv) {
         std::map<std::string, Clock::time_point> visitors;
         bool busy = false;
         const bool proxied = setting("TRUST_PROXY", "0") == "1";
+        // A static copy of the website on another origin may use this server.
+        const auto partner = setting("ALLOWED_ORIGIN", "");
         httplib::Server server;
         server.set_payload_max_length(4096);
         server.set_read_timeout(15, 0);
         server.set_write_timeout(60, 0);
         server.set_default_headers({{"X-Content-Type-Options", "nosniff"},
             {"Referrer-Policy", "no-referrer"}, {"X-Frame-Options", "DENY"},
-            {"Content-Security-Policy", "default-src 'self'; img-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"}});
+            {"Content-Security-Policy", "default-src 'self'; img-src 'self' https://i.ytimg.com; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"}});
         server.set_mount_point("/", web.u8string());
+        server.set_post_routing_handler([&](const httplib::Request& req, httplib::Response& res) {
+            if (!partner.empty() && req.get_header_value("Origin") == partner) {
+                res.set_header("Access-Control-Allow-Origin", partner);
+                res.set_header("Vary", "Origin");
+            }
+        });
+        server.Options(R"(/api/.*)", [](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Access-Control-Allow-Methods", "GET, POST");
+            res.set_header("Access-Control-Allow-Headers", "Content-Type");
+            res.set_header("Access-Control-Max-Age", "600");
+            res.status = 204;
+        });
         server.Get("/api/health", [&](const auto&, auto& res) {
             reply(res, 200, {{"ready", available}, {"max_items", 25}, {"retention_minutes", 60}});
         });
         server.Post("/api/jobs", [&](const httplib::Request& req, httplib::Response& res) {
             const auto origin = req.get_header_value("Origin");
             const auto host = req.get_header_value("Host");
-            if ((!origin.empty() && origin != "https://" + host && origin != "http://" + host) ||
-                req.get_header_value("Sec-Fetch-Site") == "cross-site") {
+            const bool trusted = !partner.empty() && origin == partner;
+            if (!trusted && ((!origin.empty() && origin != "https://" + host && origin != "http://" + host) ||
+                req.get_header_value("Sec-Fetch-Site") == "cross-site")) {
                 reply(res, 403, {{"error", "Open the downloader website to start a download."}}); return;
             }
             if (!available) {
@@ -122,7 +191,7 @@ int main(int argc, char** argv) {
             }
             std::lock_guard<std::mutex> lock(mutex);
             for (auto it = jobs.begin(); it != jobs.end();) {
-                if (it->second->state != "downloading" && it->second->state != "packing" &&
+                if (finished(*it->second) &&
                     Clock::now() - it->second->created > std::chrono::hours(1)) {
                     fs::remove_all(it->second->folder); it = jobs.erase(it);
                 } else ++it;
@@ -146,6 +215,35 @@ int main(int argc, char** argv) {
             visitors[visitor] = Clock::now(); busy = true;
             std::thread([&, job, url, mode] {
                 try {
+                    // The playlist is listed first so the page can show every item while it downloads.
+                    try {
+                        run({engine, "--ignore-config", "--no-plugin-dirs", "--flat-playlist", "--yes-playlist",
+                            "--skip-download", "--playlist-end", "25", "--socket-timeout", "20", "--print-to-file",
+                            "%(.{id,title,duration,playlist_title})j", (job->folder / "items.jsonl").u8string(),
+                            "--", url}, job->folder / "list.log", 60);
+                    } catch (const std::exception&) {}
+                    json items = json::array();
+                    std::string title;
+                    std::ifstream list(job->folder / "items.jsonl", std::ios::binary);
+                    for (std::string line; std::getline(list, line);) {
+                        const auto item = json::parse(line, nullptr, false);
+                        if (!item.is_object()) continue;
+                        auto text = [&](const char* key) {
+                            return item.contains(key) && item[key].is_string() ?
+                                item[key].get<std::string>() : std::string();
+                        };
+                        const auto id = text("id");
+                        if (id.empty() || id.size() > 20 || id.find_first_not_of(
+                            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_") != std::string::npos) continue;
+                        if (title.empty()) title = text("playlist_title");
+                        items.push_back({{"id", id}, {"title", text("title")},
+                            {"duration", item.contains("duration") && item["duration"].is_number() ? item["duration"] : json()}});
+                    }
+                    list.close();
+                    {
+                        std::lock_guard<std::mutex> guard(mutex);
+                        job->items = items; job->title = title; job->state = "downloading";
+                    }
                     std::vector<std::string> args{engine, "--ignore-config", "--no-plugin-dirs",
                         "--yes-playlist", "--no-abort-on-error", "--newline", "--no-colors",
                         "--restrict-filenames", "--concurrent-fragments", "8", "--socket-timeout", "20",
@@ -207,6 +305,7 @@ int main(int argc, char** argv) {
                 {"name", job->files[i].filename().u8string()}, {"bytes", fs::file_size(job->files[i])},
                 {"url", "/api/jobs/" + job->id + "/files/" + std::to_string(i)}});
             reply(res, 200, {{"id", job->id}, {"state", job->state}, {"message", job->message},
+                {"title", job->title}, {"items", item_states(*job)},
                 {"log", read_tail(job->folder / "progress.log")}, {"files", files},
                 {"archive", files.empty() ? "" : "/api/jobs/" + job->id + "/archive"}});
         });
@@ -244,7 +343,7 @@ int main(int argc, char** argv) {
                 std::this_thread::sleep_for(std::chrono::minutes(1));
                 std::lock_guard<std::mutex> lock(mutex);
                 for (auto it = jobs.begin(); it != jobs.end();) {
-                    if (it->second->state != "downloading" && it->second->state != "packing" &&
+                    if (finished(*it->second) &&
                         Clock::now() - it->second->created > std::chrono::hours(1)) {
                         std::error_code error;
                         fs::remove_all(it->second->folder, error);

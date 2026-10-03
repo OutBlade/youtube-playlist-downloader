@@ -3,7 +3,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake make 
 WORKDIR /source
 COPY CMakeLists.txt ./
 COPY src ./src
-COPY web ./web
 RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF && cmake --build build -j2
 
 FROM denoland/deno:bin AS deno
