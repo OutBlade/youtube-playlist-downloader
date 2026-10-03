@@ -16,7 +16,7 @@ class CLI(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.log = self.root / 'args.txt'
         self.env = dict(os.environ, YTPLAYLIST_TEST_LOG=str(self.log))
         engine_dir = self.root / 'engine with spaces'
