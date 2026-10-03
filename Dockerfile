@@ -1,5 +1,5 @@
 FROM debian:bookworm-slim AS build
-RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake make ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /source
 COPY CMakeLists.txt ./
 COPY src ./src
