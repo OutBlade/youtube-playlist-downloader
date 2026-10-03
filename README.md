@@ -11,6 +11,10 @@ Paste a playlist link and download. No GUI, accounts, or database.
 
 ## Get started
 
+Download a prebuilt executable from [Releases](https://github.com/OutBlade/youtube-playlist-downloader/releases/latest)
+or build from source below. Windows binaries are x64; they also run on Windows ARM64
+through Windows' x64 emulation. For Linux and macOS, run `chmod +x ytplaylist` after extraction.
+
 Install **yt-dlp** and **ffmpeg** and put them on your PATH.
 Follow the [official yt-dlp installation instructions](https://github.com/yt-dlp/yt-dlp#installation),
 including its recommended JavaScript runtime for full YouTube support.

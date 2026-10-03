@@ -141,7 +141,8 @@ int app(const std::vector<std::string>& input) {
             "--concurrent-fragments", jobs, "--download-archive",
             (folder / "downloaded.txt").u8string(), "--paths", folder.u8string(),
             "--output", "%(playlist_title)s/%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
-        if (audio) args.insert(args.end(), {"--extract-audio", "--audio-format", "mp3"});
+        if (audio) args.insert(args.end(), {"--format", "bestaudio/best",
+            "--extract-audio", "--audio-format", "mp3"});
         args.insert(args.end(), {"--", url});
         std::cout << "Downloading to " << folder.u8string() << '\n' << std::flush;
         int status = run(args);

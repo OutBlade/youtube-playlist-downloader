@@ -63,6 +63,7 @@ class CLI(unittest.TestCase):
         self.assertEqual(result.returncode, 7)
         args = self.log.read_text(encoding='utf-8').splitlines()
         self.assertIn('--extract-audio', args)
+        self.assertEqual(args[args.index('--format') + 1], 'bestaudio/best')
         self.assertEqual(args[args.index('--audio-format') + 1], 'mp3')
         self.assertIn('Some items may have failed', result.stderr)
 
