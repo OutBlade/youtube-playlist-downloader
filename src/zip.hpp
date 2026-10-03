@@ -16,6 +16,15 @@ inline void make_zip(const std::filesystem::path& destination,
         for (int i = 0; i < bytes; ++i) out.put(static_cast<char>(value >> (i * 8)));
     };
     std::array<char, 65536> buffer{};
+    static const auto table = [] {
+        std::array<uint32_t, 256> values{};
+        for (uint32_t i = 0; i < 256; ++i) {
+            uint32_t value = i;
+            for (int bit = 0; bit < 8; ++bit) value = (value >> 1) ^ (0xedb88320u & (0u - (value & 1)));
+            values[i] = value;
+        }
+        return values;
+    }();
     uint64_t total = 0;
     for (const auto& file : files) {
         const auto size = std::filesystem::file_size(file);
@@ -27,8 +36,7 @@ inline void make_zip(const std::filesystem::path& destination,
         std::ifstream input(file, std::ios::binary);
         while (input.read(buffer.data(), buffer.size()) || input.gcount()) {
             for (std::streamsize i = 0; i < input.gcount(); ++i) {
-                crc ^= static_cast<unsigned char>(buffer[static_cast<size_t>(i)]);
-                for (int bit = 0; bit < 8; ++bit) crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1)));
+                crc = (crc >> 8) ^ table[(crc ^ static_cast<unsigned char>(buffer[static_cast<size_t>(i)])) & 255];
             }
         }
         entry.crc = crc ^ 0xffffffff;

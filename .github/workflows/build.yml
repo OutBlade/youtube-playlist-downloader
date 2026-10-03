@@ -38,3 +38,19 @@ jobs:
         with:
           name: ytplaylist-${{ matrix.os }}
           path: dist/*.zip
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ytplaylist-web:test .
+      - run: docker run -d --name ytplaylist-test -p 127.0.0.1:8080:8080 ytplaylist-web:test
+      - name: Verify container serves the website and has working dependencies
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health > health.json; then break; fi
+            sleep 2
+          done
+          python3 -c "import json; assert json.load(open('health.json'))['ready']"
+          curl -fsS http://127.0.0.1:8080/ | grep -q 'BLADE'
+      - if: failure()
+        run: docker logs ytplaylist-test

@@ -16,7 +16,7 @@ Open `http://localhost:8080`. Put your server's HTTPS reverse proxy in front of
 `127.0.0.1:8080` and preserve its original Host header. The container installs
 yt-dlp, ffmpeg, and Deno; visitors need only their browser.
 
-The website's static files are in `web/`. They can be previewed on GitHub Pages,
+The website's static files are in `web/`. [Preview the design on GitHub Pages](https://outblade.github.io/youtube-playlist-downloader/),
 but **Pages cannot run the downloader backend**. A static preview clearly says
 that downloads need server deployment and disables the Download button.
 Public backend hosting is prepared; no host has been provisioned.

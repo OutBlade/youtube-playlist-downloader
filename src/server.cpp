@@ -178,6 +178,9 @@ int main(int argc, char** argv) {
             auto found = jobs.find(req.matches[1].str());
             if (found == jobs.end()) { reply(res, 404, {{"error", "This download has expired. Start a new one."}}); return; }
             const auto& job = found->second;
+            if (Clock::now() - job->created > std::chrono::hours(1)) {
+                reply(res, 410, {{"error", "This download has expired. Start a new one."}}); return;
+            }
             json files = json::array();
             for (size_t i = 0; i < job->files.size(); ++i) files.push_back({
                 {"name", job->files[i].filename().u8string()}, {"bytes", fs::file_size(job->files[i])},
@@ -193,6 +196,9 @@ int main(int argc, char** argv) {
                 auto found = jobs.find(req.matches[1].str());
                 if (found == jobs.end()) { reply(res, 404, {{"error", "Download expired."}}); return; }
                 const auto& job = found->second;
+                if (Clock::now() - job->created > std::chrono::hours(1)) {
+                    reply(res, 410, {{"error", "Download expired."}}); return;
+                }
                 if (job->state != "complete" && job->state != "partial") {
                     reply(res, 409, {{"error", "Your files are still being prepared."}}); return;
                 }
@@ -212,6 +218,20 @@ int main(int argc, char** argv) {
         server.set_exception_handler([](const auto&, auto& res, std::exception_ptr) {
             reply(res, 500, {{"error", "Something went wrong. Please try again."}});
         });
+        std::thread([&] {
+            for (;;) {
+                std::this_thread::sleep_for(std::chrono::minutes(1));
+                std::lock_guard<std::mutex> lock(mutex);
+                for (auto it = jobs.begin(); it != jobs.end();) {
+                    if (it->second->state != "downloading" && it->second->state != "packing" &&
+                        Clock::now() - it->second->created > std::chrono::hours(1)) {
+                        std::error_code error;
+                        fs::remove_all(it->second->folder, error);
+                        it = jobs.erase(it);
+                    } else ++it;
+                }
+            }
+        }).detach();
         const auto host = setting("HOST", "127.0.0.1");
         const auto port = std::stoi(setting("PORT", "8080"));
         std::cout << "Open http://" << host << ':' << port << "\n" << std::flush;

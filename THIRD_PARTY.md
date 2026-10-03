@@ -8,7 +8,7 @@
 
 ## MIT notices for cpp-httplib and JSON for Modern C++
 
-Copyright (c) 2026 Yuji Hirose
+Copyright (c) 2017 yhirose
 
 Copyright (c) 2013-2025 Niels Lohmann
 

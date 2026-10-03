@@ -62,7 +62,7 @@ h3{font-size:15px;font-weight:600;letter-spacing:-.015em;margin:0}
 #job-detail{color:var(--secondary);font-size:12px;font-variant-numeric:tabular-nums}
 progress{display:block;appearance:none;border:0;width:100%;height:3px;margin:20px 0;background:var(--rule);overflow:hidden;color:var(--ink);accent-color:var(--ink)}
 progress::-webkit-progress-bar{background:var(--rule)}
-progress::-webkit-progress-value{background:var(--ink);transition:width .4s cubic-bezier(.16,1,.3,1)}
+progress::-webkit-progress-value{background:var(--ink)}
 progress::-moz-progress-bar{background:var(--ink)}
 progress:indeterminate{background:var(--rule)}
 progress:indeterminate::-webkit-progress-bar{background:linear-gradient(90deg,var(--rule) 0 35%,var(--ink) 35% 55%,var(--rule) 55% 100%);background-size:200% 100%;animation:progress-scan 2s linear infinite}
