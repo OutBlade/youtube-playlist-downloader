@@ -26,10 +26,14 @@ jobs:
           from pathlib import Path
           from zipfile import ZipFile, ZIP_DEFLATED
           binary = Path('build/Release/ytplaylist.exe' if '${{ runner.os }}' == 'Windows' else 'build/ytplaylist')
+          server = Path('build/Release/ytplaylist-web.exe' if '${{ runner.os }}' == 'Windows' else 'build/ytplaylist-web')
           Path('dist').mkdir()
           with ZipFile('dist/ytplaylist-${{ runner.os }}.zip', 'w', ZIP_DEFLATED) as archive:
-              for file in [binary, Path('README.md'), Path('LICENSE')]:
+              for file in [binary, server, Path('README.md'), Path('LICENSE'), Path('THIRD_PARTY.md')]:
                   archive.write(file, file.name)
+              for file in Path('web').rglob('*'):
+                  if file.is_file():
+                      archive.write(file, file.as_posix())
       - uses: actions/upload-artifact@v4
         with:
           name: ytplaylist-${{ matrix.os }}

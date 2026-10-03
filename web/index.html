@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111214">
+  <meta name="description" content="Download a YouTube playlist as video or MP3. A simple, open-source tool by BLADE.">
+  <title>BLADE — Playlist downloader</title>
+  <link rel="icon" href="assets/blade-logo.gif">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#downloader">Skip to downloader</a>
+  <div class="page">
+    <header class="header">
+      <a class="brand" href="./" aria-label="BLADE home"><img src="assets/blade-logo.gif" alt="BLADE" width="1200" height="1200"></a>
+      <a class="source-link" href="https://github.com/OutBlade/youtube-playlist-downloader" target="_blank" rel="noopener noreferrer">View source <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+    </header>
+    <main id="downloader">
+      <section class="workspace" aria-labelledby="page-title">
+        <h1 id="page-title">Your playlist.<br><span>Ready to go.</span></h1>
+        <p class="intro">Paste a YouTube link. Pick your format.<br class="mobile-break"> Get everything in one download.</p>
+        <form id="download-form" novalidate>
+          <label for="playlist-url" class="field-label">YouTube playlist or video link</label>
+          <div class="input-row">
+            <div class="url-field">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4M8.5 15.5l-1 1a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m1 1 1-1a3.5 3.5 0 0 1 5 5l-4 4a3.5 3.5 0 0 1-5 0"/></svg>
+              <input id="playlist-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://www.youtube.com/playlist?list=…" aria-describedby="form-message" required>
+            </div>
+            <button id="start-download" class="primary-button" type="submit" disabled><span>Download</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></button>
+          </div>
+          <div class="options-row">
+            <fieldset class="format-options"><legend class="sr-only">Download format</legend>
+              <label><input type="radio" name="mode" value="video" checked><span>Video<span class="format-detail"> / 1080p</span></span></label>
+              <label><input type="radio" name="mode" value="audio"><span>Audio<span class="format-detail"> / MP3</span></span></label>
+            </fieldset>
+            <p class="limit-note">Up to 25 items per playlist</p>
+          </div>
+          <p id="form-message" class="form-message" role="status">Connecting to the downloader…</p>
+        </form>
+      </section>
+      <section class="downloads" aria-labelledby="downloads-title">
+        <div class="section-heading"><h2 id="downloads-title">Your download</h2><span id="download-state" class="state-label">No active download</span></div>
+        <div id="empty-state" class="empty-state"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 8v18m-7-7 7 7 7-7M8 30v3h24v-3"/></svg><p>Nothing in the queue.<span>Your playlist will appear here.</span></p></div>
+        <div id="job-panel" class="job-panel" hidden>
+          <div class="job-summary"><h3 id="job-title">Preparing your playlist</h3><span id="job-detail">Getting started…</span></div>
+          <progress id="job-progress" max="100" aria-label="Current file download progress"></progress>
+          <p id="job-message" class="job-message" role="status"></p>
+          <a id="save-archive" class="primary-button save-button" hidden download>Download ZIP <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></a>
+          <ul id="file-list" class="file-list"></ul>
+          <details id="progress-details"><summary>Download details</summary><pre id="job-log"></pre></details>
+        </div>
+      </section>
+      <p class="usage-note">Download only content you own or have permission to save.<br>Large files may be skipped. Files expire after one hour.</p>
+    </main>
+    <footer><span>A simple tool by BLADE.</span><a href="https://github.com/OutBlade/youtube-playlist-downloader/releases" target="_blank" rel="noopener noreferrer">Prefer the command line? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></footer>
+  </div>
+</body>
+</html>

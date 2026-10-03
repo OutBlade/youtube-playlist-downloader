@@ -3,3 +3,6 @@
 __pycache__/
 *.exe
 *.part
+/web-downloads/
+/.impeccable/review/
+/.impeccable/mocks/

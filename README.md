@@ -1,5 +1,46 @@
 # YouTube Playlist Downloader
 
+Now includes **BLADE**, a minimal browser interface with a C++ HTTP backend.
+Paste a playlist, choose video or MP3, follow progress, and download the ZIP.
+The supplied BLADE logo is used unchanged, with a dark monochrome interface designed using Impeccable.
+
+## Website
+
+For public hosting, run the complete app on a server using Docker:
+
+```sh
+docker compose up --build -d
+```
+
+Open `http://localhost:8080`. Put your server's HTTPS reverse proxy in front of
+`127.0.0.1:8080` and preserve its original Host header. The container installs
+yt-dlp, ffmpeg, and Deno; visitors need only their browser.
+
+The website's static files are in `web/`. They can be previewed on GitHub Pages,
+but **Pages cannot run the downloader backend**. A static preview clearly says
+that downloads need server deployment and disables the Download button.
+Public backend hosting is prepared; no host has been provisioned.
+
+To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
+`ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.
+By default it listens on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to expose it to a
+hosting platform. The server honors `PORT`, `WEB_ROOT`, `DOWNLOAD_ROOT`,
+`YTPLAYLIST_ENGINE`, `FFMPEG`, and `DENO` environment variables.
+
+The public server processes one playlist at a time, with a maximum of 25 items,
+75 MiB per selected stream, 1080p video, a 30-minute job timeout, and 2 GiB per
+ZIP. It requires at least 4 GiB free before accepting a job. One download start
+per client IP per minute is allowed; a reverse proxy may group visitors under
+one IP. Files are temporary, retained for up to one hour and removed on restart.
+Job URLs contain random identifiers: treat them as private download links.
+Only recognized media files are exposed, and cross-origin starts are rejected.
+
+Rebuild the Docker image regularly to update YouTube extraction. Some hosting
+providers' IP addresses may be blocked by YouTube; verify a real playlist from
+the chosen server before opening it to visitors.
+
+## Command-line tool
+
 A tiny C++17 command-line frontend for [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 Paste a playlist link and download. No GUI, accounts, or database.
 

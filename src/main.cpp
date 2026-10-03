@@ -3,15 +3,22 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <thread>
 
 #ifdef _WIN32
 #define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
 #include <cerrno>
 #include <cstring>
 #include <sys/wait.h>
+#include <spawn.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <unistd.h>
+extern char** environ;
 #endif
 
 namespace fs = std::filesystem;
@@ -55,7 +62,7 @@ std::wstring quote(const std::wstring& arg) {
 }
 #endif
 
-int run(const std::vector<std::string>& args) {
+int run(const std::vector<std::string>& args, const fs::path& log = {}, int timeout_seconds = 0) {
 #ifdef _WIN32
     std::wstring command;
     for (const auto& arg : args) {
@@ -64,14 +71,38 @@ int run(const std::vector<std::string>& args) {
     }
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
+    HANDLE output = INVALID_HANDLE_VALUE;
+    HANDLE input = INVALID_HANDLE_VALUE;
+    if (!log.empty()) {
+        SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+        output = CreateFileW(log.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                             &security, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+        input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                            &security, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (output == INVALID_HANDLE_VALUE || input == INVALID_HANDLE_VALUE) {
+            if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
+            if (input != INVALID_HANDLE_VALUE) CloseHandle(input);
+            throw std::runtime_error("Could not open download log");
+        }
+        startup.dwFlags = STARTF_USESTDHANDLES;
+        startup.hStdOutput = startup.hStdError = output;
+        startup.hStdInput = input;
+    }
     PROCESS_INFORMATION process{};
-    if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, 0,
-                        nullptr, nullptr, &startup, &process)) {
+    const bool started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE,
+                        log.empty() ? 0 : CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
+    if (output != INVALID_HANDLE_VALUE) CloseHandle(output);
+    if (input != INVALID_HANDLE_VALUE) CloseHandle(input);
+    if (!started) {
         throw std::runtime_error("Could not start yt-dlp (Windows error " +
             std::to_string(GetLastError()) + "). Install yt-dlp or use --yt-dlp PATH.");
     }
     CloseHandle(process.hThread);
-    WaitForSingleObject(process.hProcess, INFINITE);
+    if (WaitForSingleObject(process.hProcess, timeout_seconds > 0 ?
+        static_cast<DWORD>(timeout_seconds) * 1000 : INFINITE) == WAIT_TIMEOUT) {
+        TerminateProcess(process.hProcess, 124);
+        WaitForSingleObject(process.hProcess, INFINITE);
+    }
     DWORD status = 1;
     GetExitCodeProcess(process.hProcess, &status);
     CloseHandle(process.hProcess);
@@ -80,17 +111,37 @@ int run(const std::vector<std::string>& args) {
     std::vector<char*> argv;
     for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
     argv.push_back(nullptr);
-    pid_t child = fork();
-    if (child < 0) throw std::runtime_error("Could not create downloader process");
-    if (child == 0) {
-        execvp(argv[0], argv.data());
-        std::cerr << "Could not start yt-dlp: " << std::strerror(errno)
-                  << ". Install yt-dlp or use --yt-dlp PATH.\n";
-        _exit(127);
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    if (!log.empty()) {
+        posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, log.c_str(),
+                                        O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO);
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
     }
+    posix_spawnattr_t attributes;
+    posix_spawnattr_init(&attributes);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attributes, 0);
+    pid_t child = 0;
+    int error = posix_spawnp(&child, argv[0], &actions, &attributes, argv.data(), environ);
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attributes);
+    if (error) throw std::runtime_error(std::string("Could not start yt-dlp: ") +
+        std::strerror(error) + ". Install yt-dlp or use --yt-dlp PATH.");
     int status = 0;
-    while (waitpid(child, &status, 0) < 0) {
-        if (errno != EINTR) throw std::runtime_error("Could not wait for downloader");
+    const auto started = std::chrono::steady_clock::now();
+    for (;;) {
+        const auto result = waitpid(child, &status, timeout_seconds > 0 ? WNOHANG : 0);
+        if (result == child) break;
+        if (result < 0 && errno != EINTR) throw std::runtime_error("Could not wait for downloader");
+        if (timeout_seconds > 0 && std::chrono::steady_clock::now() - started >
+            std::chrono::seconds(timeout_seconds)) {
+            kill(-child, SIGKILL);
+            while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+            return 124;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 #endif
@@ -155,6 +206,7 @@ int app(const std::vector<std::string>& input) {
     }
 }
 
+#ifndef YTPLAYLIST_NO_MAIN
 #ifdef _WIN32
 int wmain(int argc, wchar_t** argv) {
     std::vector<std::string> args;
@@ -171,4 +223,5 @@ int wmain(int argc, wchar_t** argv) {
 int main(int argc, char** argv) {
     return app(std::vector<std::string>(argv + 1, argv + argc));
 }
+#endif
 #endif
