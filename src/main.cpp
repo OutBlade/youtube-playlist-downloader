@@ -1,3 +1,4 @@
+#include <atomic>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
@@ -62,7 +63,9 @@ std::wstring quote(const std::wstring& arg) {
 }
 #endif
 
-int run(const std::vector<std::string>& args, const fs::path& log = {}, int timeout_seconds = 0) {
+// Returns 124 after a timeout and 125 when stop is set while the process runs.
+int run(const std::vector<std::string>& args, const fs::path& log = {}, int timeout_seconds = 0,
+        const std::atomic<bool>* stop = nullptr) {
 #ifdef _WIN32
     std::wstring command;
     for (const auto& arg : args) {
@@ -98,9 +101,12 @@ int run(const std::vector<std::string>& args, const fs::path& log = {}, int time
             std::to_string(GetLastError()) + "). Install yt-dlp or use --yt-dlp PATH.");
     }
     CloseHandle(process.hThread);
-    if (WaitForSingleObject(process.hProcess, timeout_seconds > 0 ?
-        static_cast<DWORD>(timeout_seconds) * 1000 : INFINITE) == WAIT_TIMEOUT) {
-        TerminateProcess(process.hProcess, 124);
+    const auto started_at = std::chrono::steady_clock::now();
+    while (WaitForSingleObject(process.hProcess, timeout_seconds > 0 || stop ? 100 : INFINITE) == WAIT_TIMEOUT) {
+        const bool stopped = stop && stop->load();
+        if (!stopped && (timeout_seconds <= 0 || std::chrono::steady_clock::now() - started_at <=
+            std::chrono::seconds(timeout_seconds))) continue;
+        TerminateProcess(process.hProcess, stopped ? 125 : 124);
         WaitForSingleObject(process.hProcess, INFINITE);
     }
     DWORD status = 1;
@@ -132,14 +138,15 @@ int run(const std::vector<std::string>& args, const fs::path& log = {}, int time
     int status = 0;
     const auto started = std::chrono::steady_clock::now();
     for (;;) {
-        const auto result = waitpid(child, &status, timeout_seconds > 0 ? WNOHANG : 0);
+        const auto result = waitpid(child, &status, timeout_seconds > 0 || stop ? WNOHANG : 0);
         if (result == child) break;
         if (result < 0 && errno != EINTR) throw std::runtime_error("Could not wait for downloader");
-        if (timeout_seconds > 0 && std::chrono::steady_clock::now() - started >
-            std::chrono::seconds(timeout_seconds)) {
+        const bool stopped = stop && stop->load();
+        if (stopped || (timeout_seconds > 0 && std::chrono::steady_clock::now() - started >
+            std::chrono::seconds(timeout_seconds))) {
             kill(-child, SIGKILL);
             while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
-            return 124;
+            return stopped ? 125 : 124;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

@@ -45,8 +45,8 @@
           </div>
           <div class="options-row">
             <fieldset class="format-options"><legend class="sr-only">Download format</legend>
-              <label><input type="radio" name="mode" value="video" checked><span>Video<span class="format-detail"> / 1080p</span></span></label>
-              <label><input type="radio" name="mode" value="audio"><span>Audio<span class="format-detail"> / MP3</span></span></label>
+              <label><input type="radio" name="mode" value="audio" checked><span>Audio<span class="format-detail"> / MP3</span></span></label>
+              <label><input type="radio" name="mode" value="video"><span>Video<span class="format-detail"> / 1080p</span></span></label>
             </fieldset>
             <p class="limit-note">Up to 25 items per playlist</p>
           </div>
@@ -68,6 +68,7 @@
           <div class="job-summary"><h3 id="job-title">Preparing your playlist</h3><span id="job-detail">Getting started…</span></div>
           <progress id="job-progress" max="100" aria-label="Download progress"></progress>
           <p id="job-message" class="job-message" role="status"></p>
+          <button id="cancel-download" class="secondary-button" type="button" hidden>Cancel download</button>
           <a id="save-archive" class="primary-button save-button" hidden download>Download ZIP <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m-5-5 5 5 5-5M5 19h14"/></svg></a>
           <ol id="item-sheet" class="sheet" aria-label="Playlist items"></ol>
           <ul id="file-list" class="file-list"></ul>

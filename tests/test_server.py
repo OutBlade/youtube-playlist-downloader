@@ -103,6 +103,10 @@ class Web(unittest.TestCase):
         with self.assertRaises(HTTPError) as caught:
             self.request('/api/jobs', {'url': 'https://youtube.com/watch?v=test', 'mode': 'audio'})
         self.assertEqual(caught.exception.code, 429)
+        for path, expected in [(f'/api/jobs/{job_id}/cancel', 409), ('/api/jobs/' + '0' * 32 + '/cancel', 404)]:
+            with self.assertRaises(HTTPError) as caught:
+                self.request(path, {})
+            self.assertEqual(caught.exception.code, expected)
 
 
     def test_static_copy_on_the_allowed_origin_may_start_downloads(self):

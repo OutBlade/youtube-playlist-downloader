@@ -16,7 +16,8 @@
 using json = nlohmann::json;
 using Clock = std::chrono::steady_clock;
 struct Job {
-    std::string id, state = "reading", message, title;
+    std::string id, state = "reading", message, title, visitor;
+    std::atomic<bool> cancel{false};
     fs::path folder;
     std::vector<fs::path> files;
     json items = json::array();
@@ -24,7 +25,8 @@ struct Job {
     int code = -1;
 };
 bool finished(const Job& job) {
-    return job.state == "complete" || job.state == "partial" || job.state == "failed";
+    return job.state == "complete" || job.state == "partial" || job.state == "failed" ||
+        job.state == "cancelled";
 }
 std::string setting(const char* name, const std::string& fallback) {
     const char* value = std::getenv(name);
@@ -211,6 +213,7 @@ int main(int argc, char** argv) {
             auto job = std::make_shared<Job>();
             job->id = identifier(); job->folder = root / job->id;
             fs::create_directory(job->folder);
+            job->visitor = visitor;
             jobs[job->id] = job;
             visitors[visitor] = Clock::now(); busy = true;
             std::thread([&, job, url, mode] {
@@ -220,7 +223,7 @@ int main(int argc, char** argv) {
                         run({engine, "--ignore-config", "--no-plugin-dirs", "--flat-playlist", "--yes-playlist",
                             "--skip-download", "--playlist-end", "25", "--socket-timeout", "20", "--print-to-file",
                             "%(.{id,title,duration,playlist_title})j", (job->folder / "items.jsonl").u8string(),
-                            "--", url}, job->folder / "list.log", 60);
+                            "--", url}, job->folder / "list.log", 60, &job->cancel);
                     } catch (const std::exception&) {}
                     json items = json::array();
                     std::string title;
@@ -255,7 +258,8 @@ int main(int argc, char** argv) {
                     else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b",
                         "--format-sort", "vcodec:h264,res:1080,acodec:m4a", "--merge-output-format", "mp4"});
                     args.insert(args.end(), {"--", url});
-                    const int code = run(args, job->folder / "progress.log", 1800);
+                    const int code = run(args, job->folder / "progress.log", 1800, &job->cancel);
+                    if (job->cancel) throw std::runtime_error("Download cancelled.");
                     std::vector<fs::path> files;
                     uint64_t total = 0;
                     std::vector<fs::path> found;
@@ -286,7 +290,12 @@ int main(int argc, char** argv) {
                     job->message = code == 0 ? "Your files are ready." : "Some items were unavailable. The downloaded files are ready.";
                 } catch (const std::exception& error) {
                     std::lock_guard<std::mutex> guard(mutex);
-                    job->state = "failed"; job->message = error.what();
+                    job->state = job->cancel ? "cancelled" : "failed"; job->message = error.what();
+                    if (job->cancel) {
+                        std::error_code ignored;
+                        fs::remove_all(job->folder, ignored);
+                        visitors.erase(job->visitor);
+                    }
                 }
                 std::lock_guard<std::mutex> guard(mutex); busy = false;
             }).detach();
@@ -308,6 +317,14 @@ int main(int argc, char** argv) {
                 {"title", job->title}, {"items", item_states(*job)},
                 {"log", read_tail(job->folder / "progress.log")}, {"files", files},
                 {"archive", files.empty() ? "" : "/api/jobs/" + job->id + "/archive"}});
+        });
+        server.Post(R"(/api/jobs/([a-f0-9]{32})/cancel)", [&](const httplib::Request& req, httplib::Response& res) {
+            std::lock_guard<std::mutex> lock(mutex);
+            auto found = jobs.find(req.matches[1].str());
+            if (found == jobs.end()) { reply(res, 404, {{"error", "This download has expired. Start a new one."}}); return; }
+            if (finished(*found->second)) { reply(res, 409, {{"error", "This download has already finished."}}); return; }
+            found->second->cancel = true;
+            reply(res, 202, {{"id", found->second->id}, {"state", "cancelling"}});
         });
         auto send_file = [&](const httplib::Request& req, httplib::Response& res, bool archive) {
             fs::path file;

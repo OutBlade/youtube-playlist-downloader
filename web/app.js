@@ -7,6 +7,7 @@ const panel = document.querySelector('#job-panel');
 const empty = document.querySelector('#empty-state');
 const progress = document.querySelector('#job-progress');
 const archive = document.querySelector('#save-archive');
+const cancel = document.querySelector('#cancel-download');
 const files = document.querySelector('#file-list');
 const sheet = document.querySelector('#item-sheet');
 const sleeve = document.querySelector('#sleeve');
@@ -160,6 +161,8 @@ function render(job) {
   document.querySelector('#job-message').textContent = job.message || 'Keep this page open while your files are prepared.';
   document.querySelector('#job-log').textContent = job.log || 'Reading your playlist…';
   archive.hidden = !complete;
+  cancel.hidden = complete || failed;
+  cancel.dataset.job = job.id;
   if (complete) archive.href = link(job.archive);
 
   renderItems(job, items);
@@ -190,6 +193,7 @@ async function poll(id) {
     try {
       const job = await api(`api/jobs/${id}`);
       failures = 0;
+      if (job.state === 'cancelled') { clearJob(); lock(false); notice('Download cancelled.'); break; }
       if (!render(job)) notice('Download in progress.');
       else { notice(job.state === 'failed' ? 'Check your link, then try again.' : 'Ready. Save your ZIP or download individual files.'); break; }
     } catch (error) {
@@ -227,6 +231,13 @@ form.addEventListener('submit', async event => {
     render({...job, files:[], items:[], log:''});
     await poll(job.id);
   } catch (error) { lock(false); notice(error.message, true); }
+});
+cancel.addEventListener('click', async () => {
+  cancel.disabled = true;
+  notice('Cancelling…');
+  try { await api(`api/jobs/${cancel.dataset.job}/cancel`, {method: 'POST'}); }
+  catch (error) { if (error.status !== 404 && error.status !== 409) notice(error.message, true); }
+  cancel.disabled = false;
 });
 input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
 async function connect() {
