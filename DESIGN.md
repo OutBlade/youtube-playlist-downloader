@@ -173,7 +173,7 @@ No shadows are used. Depth comes from the graphite field and log surfaces agains
 
 Controls and the technical log share the control radius: softly eased corners on rectangular forms. Structural regions use straight horizontal rules with (1px) borders. The progress track remains a fine, square-ended cut. Actual controls have eased corners even though the directional brief described square edges.
 
-The wordmark is the preserved source GIF, displayed through a horizontal crop with screen blending. Keep its supplied artwork and proportions; the small-screen brand scales to (0.82) from its left edge.
+The wordmark is the preserved source GIF, displayed through a horizontal crop with screen blending. Keep its supplied artwork and proportions; the small-screen brand is drawn at (0.82) of its desktop size.
 
 ## Components
 
