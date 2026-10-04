@@ -21,7 +21,7 @@ struct Job {
     fs::path folder;
     std::vector<fs::path> files;
     json items = json::array();
-    Clock::time_point created = Clock::now();
+    Clock::time_point completed;
     int code = -1;
 };
 bool finished(const Job& job) {
@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
             res.status = 204;
         });
         server.Get("/api/health", [&](const auto&, auto& res) {
-            reply(res, 200, {{"ready", available}, {"max_items", 25}, {"retention_minutes", 60}});
+            reply(res, 200, {{"ready", available}, {"max_items", nullptr}, {"retention_minutes", 60}});
         });
         server.Post("/api/jobs", [&](const httplib::Request& req, httplib::Response& res) {
             const auto origin = req.get_header_value("Origin");
@@ -210,7 +210,7 @@ int main(int argc, char** argv) {
             std::lock_guard<std::mutex> lock(mutex);
             for (auto it = jobs.begin(); it != jobs.end();) {
                 if (finished(*it->second) &&
-                    Clock::now() - it->second->created > std::chrono::hours(1)) {
+                    Clock::now() - it->second->completed > std::chrono::hours(1)) {
                     fs::remove_all(it->second->folder); it = jobs.erase(it);
                 } else ++it;
             }
@@ -237,9 +237,9 @@ int main(int argc, char** argv) {
                     // The playlist is listed first so the page can show every item while it downloads.
                     try {
                         run({engine, "--ignore-config", "--no-plugin-dirs", "--flat-playlist", "--yes-playlist",
-                            "--skip-download", "--playlist-end", "25", "--socket-timeout", "20", "--print-to-file",
+                            "--skip-download", "--socket-timeout", "20", "--print-to-file",
                             "%(.{id,title,duration,playlist_title})j", (job->folder / "items.jsonl").u8string(),
-                            "--", url}, job->folder / "list.log", 60, &job->cancel);
+                            "--", url}, job->folder / "list.log", 0, &job->cancel);
                     } catch (const std::exception&) {}
                     json items = json::array();
                     std::string title;
@@ -269,15 +269,14 @@ int main(int argc, char** argv) {
                             "--yes-playlist", "--no-abort-on-error", "--newline", "--no-colors",
                             "--restrict-filenames", "--concurrent-fragments", workers > 1 ? "4" : "8",
                             "--socket-timeout", "20", "--retries", "3", "--fragment-retries", "3",
-                            "--max-filesize", "75M", "--paths", job->folder.u8string(),
+                            "--paths", job->folder.u8string(),
                             "--output", "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
                         if (workers > 1) {
                             // Each worker takes every workers-th item of the listed playlist.
-                            std::string picks;
-                            for (size_t i = worker; i < items.size(); i += workers)
-                                picks += (picks.empty() ? "" : ",") + std::to_string(i + 1);
-                            args.insert(args.end(), {"--playlist-items", picks});
-                        } else args.insert(args.end(), {"--playlist-end", "25"});
+                            // An open-ended stride keeps even very large playlists within OS argument limits.
+                            args.insert(args.end(), {"--playlist-items",
+                                std::to_string(worker + 1) + "::" + std::to_string(workers)});
+                        }
                         if (mode == "audio") args.insert(args.end(), {"--format", "bestaudio/best",
                             "--extract-audio", "--audio-format", "mp3", "--embed-metadata",
                             "--embed-thumbnail", "--convert-thumbnails", "jpg",
@@ -293,7 +292,7 @@ int main(int argc, char** argv) {
                     for (size_t worker = 0; worker < workers; ++worker) pool.emplace_back([&, worker] {
                         try {
                             codes[worker] = run(arguments(worker), job->folder / (workers > 1 ?
-                                "progress-" + std::to_string(worker) + ".log" : "progress.log"), 1800, &job->cancel);
+                                "progress-" + std::to_string(worker) + ".log" : "progress.log"), 0, &job->cancel);
                         } catch (const std::exception&) {}
                     });
                     for (auto& thread : pool) thread.join();
@@ -301,7 +300,6 @@ int main(int argc, char** argv) {
                     for (const int result : codes) if (result == 124 || (result && !code)) code = result;
                     if (job->cancel) throw std::runtime_error("Download cancelled.");
                     std::vector<fs::path> files;
-                    uint64_t total = 0;
                     std::vector<fs::path> found;
                     for (const auto& file : fs::directory_iterator(job->folder))
                         if (file.is_regular_file()) found.push_back(file.path());
@@ -315,21 +313,22 @@ int main(int argc, char** argv) {
                             const auto renamed = job->folder / fs::u8path(name.substr(5));
                             fs::rename(path, renamed); path = renamed;
                         }
-                        total += fs::file_size(path); files.push_back(path);
+                        files.push_back(path);
                     }
                     std::sort(files.begin(), files.end());
                     if (files.empty()) throw std::runtime_error(code == 124 ?
                         "Download timed out. Try a smaller playlist." :
                         "No files could be downloaded. Check that the playlist is public and try again.");
-                    if (total > 2ull * 1024 * 1024 * 1024) throw std::runtime_error("Playlist exceeds the 2 GB limit.");
                     { std::lock_guard<std::mutex> guard(mutex); job->state = "packing"; }
                     make_zip(job->folder / "playlist.zip", files);
                     std::lock_guard<std::mutex> guard(mutex);
                     job->files = files; job->code = code;
+                    job->completed = Clock::now();
                     job->state = code == 0 ? "complete" : "partial";
                     job->message = code == 0 ? "Your files are ready." : "Some items were unavailable. The downloaded files are ready.";
                 } catch (const std::exception& error) {
                     std::lock_guard<std::mutex> guard(mutex);
+                    job->completed = Clock::now();
                     job->state = job->cancel ? "cancelled" : "failed"; job->message = error.what();
                     if (job->cancel) {
                         std::error_code ignored;
@@ -337,7 +336,8 @@ int main(int argc, char** argv) {
                         visitors.erase(job->visitor);
                     }
                 }
-                std::lock_guard<std::mutex> guard(mutex); busy = false;
+                std::lock_guard<std::mutex> guard(mutex);
+                busy = false;
             }).detach();
             reply(res, 202, {{"id", job->id}, {"state", job->state}});
         });
@@ -346,7 +346,7 @@ int main(int argc, char** argv) {
             auto found = jobs.find(req.matches[1].str());
             if (found == jobs.end()) { reply(res, 404, {{"error", "This download has expired. Start a new one."}}); return; }
             const auto& job = found->second;
-            if (Clock::now() - job->created > std::chrono::hours(1)) {
+            if (finished(*job) && Clock::now() - job->completed > std::chrono::hours(1)) {
                 reply(res, 410, {{"error", "This download has expired. Start a new one."}}); return;
             }
             std::string log;
@@ -376,7 +376,7 @@ int main(int argc, char** argv) {
                 auto found = jobs.find(req.matches[1].str());
                 if (found == jobs.end()) { reply(res, 404, {{"error", "Download expired."}}); return; }
                 const auto& job = found->second;
-                if (Clock::now() - job->created > std::chrono::hours(1)) {
+                if (finished(*job) && Clock::now() - job->completed > std::chrono::hours(1)) {
                     reply(res, 410, {{"error", "Download expired."}}); return;
                 }
                 if (job->state != "complete" && job->state != "partial") {
@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
                 }
                 if (archive) file = job->folder / "playlist.zip";
                 else {
-                    const auto index = std::stoul(req.matches[2].str());
+                    const auto index = std::stoull(req.matches[2].str());
                     if (index >= job->files.size()) { reply(res, 404, {{"error", "File not found."}}); return; }
                     file = job->files[index];
                 }
@@ -394,7 +394,7 @@ int main(int argc, char** argv) {
             res.set_file_content(file.u8string(), archive ? "application/zip" : "application/octet-stream");
         };
         server.Get(R"(/api/jobs/([a-f0-9]{32})/archive)", [&](const auto& req, auto& res) { send_file(req, res, true); });
-        server.Get(R"(/api/jobs/([a-f0-9]{32})/files/([0-9]{1,3}))", [&](const auto& req, auto& res) { send_file(req, res, false); });
+        server.Get(R"(/api/jobs/([a-f0-9]{32})/files/([0-9]{1,19}))", [&](const auto& req, auto& res) { send_file(req, res, false); });
         server.set_exception_handler([](const auto&, auto& res, std::exception_ptr) {
             reply(res, 500, {{"error", "Something went wrong. Please try again."}});
         });
@@ -404,7 +404,7 @@ int main(int argc, char** argv) {
                 std::lock_guard<std::mutex> lock(mutex);
                 for (auto it = jobs.begin(); it != jobs.end();) {
                     if (finished(*it->second) &&
-                        Clock::now() - it->second->created > std::chrono::hours(1)) {
+                        Clock::now() - it->second->completed > std::chrono::hours(1)) {
                         std::error_code error;
                         fs::remove_all(it->second->folder, error);
                         it = jobs.erase(it);

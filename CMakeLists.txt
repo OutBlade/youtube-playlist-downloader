@@ -53,6 +53,9 @@ if(BUILD_TESTING)
   add_test(NAME cli COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli.py
     $<TARGET_FILE:ytplaylist> $<TARGET_FILE:fake-downloader>)
   if(BUILD_WEB)
+    add_executable(zip-fixture tests/zip_fixture.cpp)
+    target_compile_features(zip-fixture PRIVATE cxx_std_17)
+    add_test(NAME zip64 COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_zip.py $<TARGET_FILE:zip-fixture>)
     add_test(NAME web COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_server.py
       $<TARGET_FILE:ytplaylist-web> $<TARGET_FILE:fake-downloader> ${CMAKE_CURRENT_SOURCE_DIR}/web)
   endif()

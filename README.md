@@ -48,11 +48,14 @@ yt-dlp processes run at once (5 by default, 8 in `compose.yaml`, at most 8).
 MP3 files carry the title, uploader, playlist name as album, track number and
 the YouTube thumbnail as cover art.
 
-The public server processes one playlist at a time, with a maximum of 25 items,
-75 MiB per selected stream, 1080p MP4 video (H.264 where available), a 30-minute job timeout, and 2 GiB per
-ZIP. It requires at least 4 GiB free before accepting a job. One download start
+The public server processes one playlist at a time without an application-imposed
+item-count, file-size, ZIP-size, or total download-duration cap. ZIP64 archives
+support large files and playlists with more than 65,535 entries. Video remains
+1080p MP4 (H.264 where available). Actual capacity depends on server storage,
+memory, network access, and YouTube availability. The server requires at least
+4 GiB free before accepting a job. One download start
 per client IP per minute is allowed; a reverse proxy may group visitors under
-one IP. Files are temporary, retained for up to one hour and removed on restart.
+one IP. Files expire one hour after the job finishes and are removed on restart.
 Job URLs contain random identifiers: treat them as private download links.
 Only recognized media files are exposed, and starts from any other origin
 than `ALLOWED_ORIGIN` are rejected.

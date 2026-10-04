@@ -4,7 +4,40 @@
 #include <filesystem>
 #include <iostream>
 #include <vector>
+#include <iomanip>
+#include <sstream>
 int finish(const std::vector<std::string>& args) {
+    if (const char* count_text = std::getenv("YTPLAYLIST_TEST_COUNT")) {
+        const int count = std::atoi(count_text);
+        int first = 1, step = 1;
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (args[i] == "--playlist-end" || args[i] == "--max-filesize") return 9;
+            if (args[i] == "--playlist-items" && i + 1 < args.size()) {
+                first = std::stoi(args[i + 1]);
+                const auto divider = args[i + 1].find("::");
+                if (divider == std::string::npos) return 9;
+                step = std::stoi(args[i + 1].substr(divider + 2));
+            }
+        }
+        for (size_t i = 0; i + 1 < args.size(); ++i) {
+            if (args[i] == "--print-to-file" && i + 2 < args.size()) {
+                std::ofstream list(std::filesystem::u8path(args[i + 2]), std::ios::binary);
+                for (int item = 1; item <= count; ++item)
+                    list << "{\"id\":\"vid" << item << "\",\"title\":\"Test " << item
+                         << "\",\"playlist_title\":\"Long playlist\"}\n";
+            }
+            if (args[i] == "--paths") {
+                for (int item = first; item <= count; item += step) {
+                    std::ostringstream name;
+                    name << std::setw(3) << std::setfill('0') << item << " - test [vid" << item << "].mp3";
+                    std::ofstream media(std::filesystem::u8path(args[i + 1]) / name.str(), std::ios::binary);
+                    media << "test media payload";
+                }
+                std::cout << "[download] 100.0%\n" << std::flush;
+            }
+        }
+        return 0;
+    }
     if (std::getenv("YTPLAYLIST_TEST_MEDIA")) {
         for (size_t i = 0; i + 1 < args.size(); ++i) {
             if (args[i] == "--paths") {
