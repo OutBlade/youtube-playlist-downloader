@@ -54,7 +54,8 @@ ZIP64 packing copies each file and computes its checksum in a single disk pass.
 More workers can increase throttling or CPU pressure; tune these settings for the
 host's connection and memory rather than assuming a fixed maximum speed.
 MP3 files carry the title, uploader, playlist name as album, track number and
-the YouTube thumbnail as cover art.
+the standard 480 x 360 YouTube thumbnail as cover art, without probing larger
+thumbnail variants that may return 404.
 
 The public server processes one playlist at a time without an application-imposed
 item-count, file-size, ZIP-size, or total download-duration cap. ZIP64 archives
