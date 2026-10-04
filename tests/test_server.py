@@ -62,7 +62,8 @@ class Web(unittest.TestCase):
             return response.status, data, response.headers
 
     def test_health_and_static(self):
-        code, body, _ = self.request('/api/health')
+        code, body, health_headers = self.request('/api/health')
+        self.assertEqual(health_headers['X-Robots-Tag'], 'noindex, nofollow')
         self.assertEqual(code, 200)
         self.assertTrue(json.loads(body)['ready'])
         self.assertIsNone(json.loads(body)['max_items'])

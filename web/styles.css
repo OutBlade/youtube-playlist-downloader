@@ -112,6 +112,26 @@ details{margin-top:24px;color:var(--secondary);font-size:12px}
 summary{cursor:pointer;display:list-item;width:fit-content}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;font:12px/1.6 ui-monospace,monospace;background:var(--surface);padding:18px;border-radius:5px;color:var(--secondary)}
 .usage-note{font-size:12px;line-height:1.9;color:var(--muted);margin:28px 0 48px}
+.help-section{border-top:1px solid var(--rule);padding:32px 0 40px}
+.help-section h2{font-size:24px;line-height:1.35;margin-bottom:24px}
+.how-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin:0;padding-left:20px;color:var(--secondary)}
+.how-steps h3{font-size:15px;color:var(--ink);margin:0 0 8px;font-weight:600}
+.how-steps p,.help-link{font-size:14px;margin:0;max-width:70ch}
+.help-link{margin-top:24px;color:var(--secondary)}
+.faq details{margin:0;padding:18px 0;border-top:1px solid var(--rule);font-size:14px}
+.faq summary{font-size:15px;color:var(--ink);line-height:1.6}
+.faq p{max-width:70ch;margin:14px 0 0;font-size:14px}
+.guide-page main{max-width:760px;padding-bottom:56px}
+.guide-page h1{font-size:clamp(34px,4.5vw,54px);line-height:1.16;max-width:20ch}
+.guide-page .intro{margin-bottom:36px}
+.guide-page section{margin-top:38px;border-top:1px solid var(--rule);padding-top:28px}
+.guide-page h2{font-size:23px;line-height:1.4;margin-bottom:16px}
+.guide-page h3{font-size:17px;margin:24px 0 10px}
+.guide-page p,.guide-page li{color:var(--secondary);max-width:70ch}
+.guide-page li{margin-bottom:12px}
+.guide-page code{overflow-wrap:anywhere;font-size:13px}
+.guide-page .primary-button{margin-top:24px}
+@media(max-width:640px){.how-steps{grid-template-columns:1fr;gap:24px}.help-section{padding:28px 0 32px}.help-section h2{font-size:22px}.guide-page h1{font-size:36px}}
 footer{margin-top:auto;min-height:94px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;gap:20px;align-items:center;font-size:12px;color:var(--muted)}
 footer a{display:flex;align-items:center;gap:8px;text-decoration:none}
 footer a:hover{color:var(--ink)}

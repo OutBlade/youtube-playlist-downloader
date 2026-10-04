@@ -175,6 +175,7 @@ int main(int argc, char** argv) {
             {"Content-Security-Policy", "default-src 'self'; img-src 'self' https://i.ytimg.com; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"}});
         server.set_mount_point("/", web.u8string());
         server.set_post_routing_handler([&](const httplib::Request& req, httplib::Response& res) {
+            if (req.path.rfind("/api/", 0) == 0) res.set_header("X-Robots-Tag", "noindex, nofollow");
             if (!partner.empty() && req.get_header_value("Origin") == partner) {
                 res.set_header("Access-Control-Allow-Origin", partner);
                 res.set_header("Vary", "Origin");

@@ -5,6 +5,12 @@
 BLADE is a minimal browser interface with a C++ HTTP backend. Paste a playlist,
 choose video or MP3, watch every item arrive with its thumbnail, and save the ZIP.
 
+Free and open source, with no signup and no application playlist-size cap.
+Known private/deleted entries are skipped before download workers start.
+See the [MP3 and video download guide](https://outblade.github.io/youtube-playlist-downloader/guide/)
+for formats, ZIP archives, and troubleshooting. The shared public backend must
+be online and handles one playlist at a time; you can run your own copy below.
+
 ## Website
 
 The page is published on GitHub Pages and stays at one address. Pages cannot

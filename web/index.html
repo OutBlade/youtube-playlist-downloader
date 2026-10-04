@@ -4,16 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111214">
-  <meta name="description" content="Download a YouTube playlist as video or MP3. A simple, open-source tool by BLADE.">
+  <meta name="description" content="Download YouTube playlists as MP3 audio or 1080p video with BLADE. Free, open source, no signup, no playlist-size cap. Save your files in one ZIP.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://outblade.github.io/youtube-playlist-downloader/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="BLADE Playlist downloader">
-  <meta property="og:description" content="Paste a YouTube link, pick video or MP3, and save the whole playlist in one download.">
-  <meta property="og:image" content="https://outblade.github.io/youtube-playlist-downloader/assets/blade-logo.gif">
-  <meta name="twitter:card" content="summary">
-  <title>BLADE — Playlist downloader</title>
+  <meta property="og:site_name" content="BLADE">
+  <meta property="og:url" content="https://outblade.github.io/youtube-playlist-downloader/">
+  <meta property="og:title" content="YouTube Playlist Downloader — MP3 &amp; Video | BLADE">
+  <meta property="og:description" content="Your playlist, saved. Free, open-source MP3 and 1080p video downloads, with no signup or playlist-size cap.">
+  <meta property="og:image" content="https://outblade.github.io/youtube-playlist-downloader/assets/social-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="BLADE YouTube playlist downloader: MP3, 1080p video, one ZIP.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="YouTube Playlist Downloader — MP3 &amp; Video | BLADE">
+  <meta name="twitter:description" content="Free, open-source playlist downloads. MP3 or 1080p video, one ZIP, no signup.">
+  <meta name="twitter:image" content="https://outblade.github.io/youtube-playlist-downloader/assets/social-preview.jpg">
+  <meta name="twitter:image:alt" content="BLADE YouTube playlist downloader: MP3, 1080p video, one ZIP.">
+  <title>YouTube Playlist Downloader — MP3 &amp; Video | BLADE</title>
   <link rel="icon" href="assets/blade-logo.gif">
+  <link rel="preload" href="assets/manrope-semibold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="sitemap" type="application/xml" href="sitemap.xml">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebApplication","@id":"https://outblade.github.io/youtube-playlist-downloader/#app","name":"BLADE YouTube Playlist Downloader","url":"https://outblade.github.io/youtube-playlist-downloader/","description":"Free, open-source YouTube playlist downloader for MP3 audio and 1080p video, delivered as a ZIP archive.","applicationCategory":"UtilitiesApplication","operatingSystem":"Any system with a modern web browser","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},"featureList":["MP3 audio with cover art","1080p video","ZIP64 playlist archives","No application playlist-size cap","Private and deleted entry skipping"],"softwareHelp":"https://outblade.github.io/youtube-playlist-downloader/guide/","license":"https://github.com/OutBlade/youtube-playlist-downloader/blob/main/LICENSE","sameAs":"https://github.com/OutBlade/youtube-playlist-downloader","image":"https://outblade.github.io/youtube-playlist-downloader/assets/social-preview.jpg"}
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#downloader">Skip to downloader</a>
@@ -26,7 +42,7 @@
       <section class="workspace" aria-labelledby="page-title">
         <div class="hero">
           <div>
-            <h1 id="page-title">Your playlist.<br><span>Ready to go.</span></h1>
+            <h1 id="page-title">YouTube playlist<br> <span>downloader.</span></h1>
             <p class="intro">Paste a YouTube link. Pick your format.<br class="mobile-break"> Get everything in one download.</p>
           </div>
           <div id="sleeve" class="sleeve-stage" aria-hidden="true">
@@ -76,8 +92,26 @@
         </div>
       </section>
       <p class="usage-note">Download only content you own or have permission to save.<br>Files expire one hour after your download finishes.</p>
+      <section class="help-section" aria-labelledby="how-title">
+        <h2 id="how-title">Save a playlist in three steps</h2>
+        <ol class="how-steps">
+          <li><h3>Paste your link</h3><p>Copy a public YouTube playlist or video URL into the field above.</p></li>
+          <li><h3>Choose MP3 or video</h3><p>Save audio with cover art, or choose video up to 1080p where available.</p></li>
+          <li><h3>Download the ZIP</h3><p>Watch the queue, then save all completed files together or individually.</p></li>
+        </ol>
+        <p class="help-link"><a href="guide/">Read the YouTube playlist download guide</a></p>
+      </section>
+      <section class="help-section faq" aria-labelledby="faq-title">
+        <h2 id="faq-title">Before you download</h2>
+        <details><summary>Is BLADE free, and do I need an account?</summary><p>BLADE is free and open source. You can use the website without creating an account or installing an app. The source code and command-line version are available on GitHub.</p></details>
+        <details><summary>Can I download a YouTube playlist as MP3?</summary><p>Yes. Select Audio / MP3 before starting. Each completed audio file includes metadata and a 480 × 360 YouTube thumbnail as cover art. You can save the MP3 files individually or together in a ZIP.</p></details>
+        <details><summary>Is there a playlist-size limit?</summary><p>There is no application cap on the number of playlist items, file sizes, or total download duration. Available server storage, network access, and YouTube availability determine what can finish. ZIP64 supports large archives.</p></details>
+        <details><summary>What happens to private or deleted videos?</summary><p>Known private and deleted entries are skipped before downloading. Videos that become unavailable during extraction are not retried by the extractor. The queue continues with the remaining videos.</p></details>
+        <details><summary>Why is the downloader busy or offline?</summary><p>The public backend handles one playlist at a time and runs on the owner's computer. It must be online to process downloads. If it is busy, try again after the active playlist finishes. You can also run your own copy from GitHub.</p></details>
+        <details><summary>How long are my files available?</summary><p>Files expire one hour after your download finishes. They can also be removed when the server restarts, so save your ZIP or individual files promptly.</p></details>
+      </section>
     </main>
-    <footer><span>A simple tool by BLADE.</span><a href="https://github.com/OutBlade/youtube-playlist-downloader/releases" target="_blank" rel="noopener noreferrer">Prefer the command line? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></footer>
+    <footer><span>A simple tool by BLADE.</span><a href="guide/">Download guide</a><a href="https://github.com/OutBlade/youtube-playlist-downloader/releases" target="_blank" rel="noopener noreferrer">Prefer the command line? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></footer>
   </div>
 </body>
 </html>
