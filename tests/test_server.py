@@ -30,8 +30,10 @@ class Web(unittest.TestCase):
                    YTPLAYLIST_ENGINE=ENGINE, ALLOWED_ORIGIN='https://site.example', FFMPEG=ENGINE, DENO=ENGINE,
                    YTPLAYLIST_TEST_LOG=str(Path(self.temp.name) / 'args.txt'),
                    YTPLAYLIST_TEST_MEDIA='1', YTPLAYLIST_TEST_EXIT='0')
-        if self._testMethodName == 'test_more_than_25_items_are_all_downloaded':
+        if self._testMethodName in ['test_more_than_25_items_are_all_downloaded', 'test_unavailable_items_never_reach_workers']:
             env['YTPLAYLIST_TEST_COUNT'] = '30'
+        if self._testMethodName == 'test_unavailable_items_never_reach_workers':
+            env['YTPLAYLIST_TEST_UNAVAILABLE'] = '1'
         self.log = open(Path(self.temp.name) / 'server.log', 'w')
         self.addCleanup(self.log.close)
         self.server = subprocess.Popen([SERVER], env=env, stdout=self.log, stderr=self.log)
@@ -138,6 +140,31 @@ class Web(unittest.TestCase):
         self.assertEqual(response['Access-Control-Allow-Origin'], 'https://site.example')
         _, _, response = self.request('/api/health')
         self.assertIsNone(response['Access-Control-Allow-Origin'])
+
+    def test_unavailable_items_never_reach_workers(self):
+        _, body, _ = self.request('/api/jobs', {'url': 'https://youtube.com/playlist?list=MIXED', 'mode': 'audio'})
+        job_id = json.loads(body)['id']
+        for _ in range(100):
+            _, body, _ = self.request('/api/jobs/' + job_id)
+            job = json.loads(body)
+            if job['state'] in ['complete', 'partial', 'failed']:
+                break
+            time.sleep(.1)
+        self.assertEqual(job['state'], 'complete', job)
+        self.assertEqual(len(job['files']), 28)
+        self.assertEqual([(i['id'], i.get('note')) for i in job['items'] if i['state'] == 'skipped'],
+                         [('vid2', 'Private'), ('vid4', 'Deleted')])
+        folder = Path(self.temp.name) / 'downloads' / job_id
+        manifests = list(folder.glob('worker-*.json'))
+        self.assertEqual(len(manifests), 16)
+        entries = [entry for manifest in manifests for entry in json.loads(manifest.read_text())]
+        self.assertEqual(sorted(e['playlist_index'] for e in entries), [i for i in range(1, 31) if i not in [2, 4]])
+        self.assertTrue(all(e['playlist_title'] == 'Long playlist' for e in entries))
+        _, content, _ = self.request(job['archive'])
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            self.assertEqual(len(archive.infolist()), 28)
+            self.assertIsNone(archive.testzip())
+            self.assertTrue(all(entry.flag_bits & 8 for entry in archive.infolist()))
 
 
 if __name__ == '__main__':

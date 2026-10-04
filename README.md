@@ -43,8 +43,16 @@ hosting platform. The server honors `PORT`, `WEB_ROOT`, `DOWNLOAD_ROOT`,
 `YTPLAYLIST_ENGINE`, `FFMPEG`, `DENO`, `TRUST_PROXY`, and `ALLOWED_ORIGIN`
 environment variables.
 
-Playlist items are downloaded several at a time: `WORKERS` sets how many
-yt-dlp processes run at once (5 by default, 8 in `compose.yaml`, at most 8).
+The playlist is fetched once and divided into worker queues, balancing known
+video durations so long videos start early. `WORKERS` sets how many yt-dlp
+processes run at once (16 by default, at most 32). `FRAGMENTS` controls concurrent
+fragments per video (8 by default, at most 32); it applies to fragmented streams.
+Known private/deleted placeholders are skipped before extraction. Newly unavailable
+videos skip on the first permanent extraction error, without extractor retries.
+Transient transfer errors get one retry and sockets time out after 10 seconds.
+ZIP64 packing copies each file and computes its checksum in a single disk pass.
+More workers can increase throttling or CPU pressure; tune these settings for the
+host's connection and memory rather than assuming a fixed maximum speed.
 MP3 files carry the title, uploader, playlist name as album, track number and
 the YouTube thumbnail as cover art.
 

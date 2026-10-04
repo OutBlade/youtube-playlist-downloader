@@ -52,5 +52,9 @@ jobs:
           done
           python3 -c "import json; assert json.load(open('health.json'))['ready']"
           curl -fsS http://127.0.0.1:8080/ | grep -q 'BLADE'
+      - name: Verify worker manifests with the installed yt-dlp engine
+        run: |
+          docker cp tests/test_engine_manifest.py ytplaylist-test:/tmp/test_engine_manifest.py
+          docker exec ytplaylist-test /opt/yt-dlp/bin/python /tmp/test_engine_manifest.py
       - if: failure()
         run: docker logs ytplaylist-test

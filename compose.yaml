@@ -5,15 +5,16 @@ services:
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
     init: true
-    mem_limit: 2g
-    cpus: 6
+    mem_limit: 4g
+    cpus: 10
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     environment:
       TRUST_PROXY: "1"
-      WORKERS: "8"
+      WORKERS: "16"
+      FRAGMENTS: "8"
       ALLOWED_ORIGIN: "https://outblade.github.io"
   # Public HTTPS address without an account: docker compose --profile public up -d
   tunnel:

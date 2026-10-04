@@ -43,7 +43,7 @@ std::string read_tail(const fs::path& path, std::streamoff limit) {
 std::vector<fs::path> logs(const fs::path& folder) {
     std::vector<fs::path> found;
     if (fs::exists(folder / "progress.log")) found.push_back(folder / "progress.log");
-    for (int worker = 0; worker < 8; ++worker) {
+    for (int worker = 0; worker < 32; ++worker) {
         const auto path = folder / ("progress-" + std::to_string(worker) + ".log");
         if (fs::exists(path)) found.push_back(path);
     }
@@ -59,7 +59,7 @@ json item_states(const Job& job) {
     json items = job.items;
     std::map<std::string, size_t> index;
     for (size_t i = 0; i < items.size(); ++i) {
-        items[i]["state"] = "queued";
+        if (items[i].value("state", "queued") != "skipped") items[i]["state"] = "queued";
         index[items[i]["id"].get<std::string>()] = i;
     }
     for (const auto& path : logs(job.folder)) {
@@ -75,9 +75,11 @@ json item_states(const Job& job) {
             if (found == index.end()) continue;
             auto& item = items[found->second];
             if (error) {
-                item["state"] = "failed";
+                const bool unavailable = line.find("rivate") != std::string::npos ||
+                    line.find("deleted") != std::string::npos || line.find("removed") != std::string::npos;
+                item["state"] = unavailable ? "skipped" : "failed";
                 item["note"] = line.find("confirm your age") != std::string::npos ? "Age-restricted" :
-                    line.find("rivate") != std::string::npos ? "Private" : "Unavailable";
+                    line.find("rivate") != std::string::npos ? "Private" : unavailable ? "Deleted" : "Unavailable";
             } else if (current != &item) {
                 if (current && (*current)["state"] == "active") (*current)["state"] = "done";
                 current = &item; item["state"] = "active";
@@ -162,7 +164,8 @@ int main(int argc, char** argv) {
         // A static copy of the website on another origin may use this server.
         const auto partner = setting("ALLOWED_ORIGIN", "");
         // Playlist items are downloaded by this many yt-dlp processes at once.
-        const size_t parallel = static_cast<size_t>(std::clamp(std::stoi(setting("WORKERS", "5")), 1, 8));
+        const size_t parallel = static_cast<size_t>(std::clamp(std::stoi(setting("WORKERS", "16")), 1, 32));
+        const auto fragments = std::to_string(std::clamp(std::stoi(setting("FRAGMENTS", "8")), 1, 32));
         httplib::Server server;
         server.set_payload_max_length(4096);
         server.set_read_timeout(15, 0);
@@ -237,11 +240,13 @@ int main(int argc, char** argv) {
                     // The playlist is listed first so the page can show every item while it downloads.
                     try {
                         run({engine, "--ignore-config", "--no-plugin-dirs", "--flat-playlist", "--yes-playlist",
-                            "--skip-download", "--socket-timeout", "20", "--print-to-file",
-                            "%(.{id,title,duration,playlist_title})j", (job->folder / "items.jsonl").u8string(),
+                            "--skip-download", "--ignore-errors", "--socket-timeout", "10",
+                            "--extractor-retries", "0", "--retries", "1", "--print-to-file",
+                            "%(.{id,title,duration,playlist_title,playlist_index,availability})j", (job->folder / "items.jsonl").u8string(),
                             "--", url}, job->folder / "list.log", 0, &job->cancel);
                     } catch (const std::exception&) {}
                     json items = json::array();
+                    json downloads = json::array();
                     std::string title;
                     std::ifstream list(job->folder / "items.jsonl", std::ios::binary);
                     for (std::string line; std::getline(list, line);) {
@@ -257,26 +262,65 @@ int main(int argc, char** argv) {
                         if (title.empty()) title = text("playlist_title");
                         items.push_back({{"id", id}, {"title", text("title")},
                             {"duration", item.contains("duration") && item["duration"].is_number() ? item["duration"] : json()}});
+                        // YouTube exposes unavailable placeholders in its flat playlist listing.
+                        // Never send these to the video extractor or consume a worker slot for them.
+                        const bool private_video = text("availability") == "private" || text("title") == "[Private video]";
+                        const bool deleted_video = text("title") == "[Deleted video]";
+                        if (private_video || deleted_video) {
+                            items.back()["state"] = "skipped";
+                            items.back()["note"] = private_video ? "Private" : "Deleted";
+                            continue;
+                        }
+                        // URL-transparent entries preserve track/album metadata while the engine
+                        // retrieves fresh formats, without requesting the original playlist again.
+                        downloads.push_back({{"_type", "url_transparent"}, {"ie_key", "Youtube"},
+                            {"url", "https://www.youtube.com/watch?v=" + id},
+                            {"playlist_title", title}, {"playlist", title},
+                            {"playlist_index", item.contains("playlist_index") && item["playlist_index"].is_number_integer() ?
+                                item["playlist_index"] : json(items.size())}});
                     }
                     list.close();
                     {
                         std::lock_guard<std::mutex> guard(mutex);
                         job->items = items; job->title = title; job->state = "downloading";
                     }
-                    const size_t workers = std::max<size_t>(1, std::min(parallel, items.size()));
+                    if (job->cancel) throw std::runtime_error("Download cancelled.");
+                    if (downloads.empty() && !items.empty())
+                        throw std::runtime_error("All playlist videos are private or deleted.");
+                    const size_t workers = std::max<size_t>(1, std::min(parallel, downloads.size()));
+                    std::vector<json> batches(workers, json::array());
+                    std::vector<double> loads(workers, 0);
+                    std::vector<size_t> order;
+                    for (size_t i = 0; i < items.size(); ++i)
+                        if (items[i].value("state", "queued") != "skipped") order.push_back(i);
+                    auto duration = [&](size_t i) {
+                        return items[i]["duration"].is_number() ? std::max(1.0, items[i]["duration"].get<double>()) : 300.0;
+                    };
+                    std::vector<size_t> sorted(downloads.size());
+                    for (size_t i = 0; i < sorted.size(); ++i) sorted[i] = i;
+                    std::stable_sort(sorted.begin(), sorted.end(), [&](size_t a, size_t b) {
+                        return duration(order[a]) > duration(order[b]);
+                    });
+                    for (size_t i : sorted) {
+                        const auto worker = static_cast<size_t>(std::min_element(loads.begin(), loads.end()) - loads.begin());
+                        batches[worker].push_back(downloads[i]);
+                        loads[worker] += duration(order[i]);
+                    }
+                    for (size_t worker = 0; worker < workers; ++worker) {
+                        std::ofstream manifest(job->folder / ("worker-" + std::to_string(worker) + ".json"));
+                        manifest << batches[worker].dump(-1, ' ', false, json::error_handler_t::replace);
+                        manifest.close();
+                        if (!manifest) throw std::runtime_error("Could not prepare download queue.");
+                    }
                     auto arguments = [&](size_t worker) {
                         std::vector<std::string> args{engine, "--ignore-config", "--no-plugin-dirs",
-                            "--yes-playlist", "--no-abort-on-error", "--newline", "--no-colors",
-                            "--restrict-filenames", "--concurrent-fragments", workers > 1 ? "4" : "8",
-                            "--socket-timeout", "20", "--retries", "3", "--fragment-retries", "3",
+                            "--yes-playlist", "--ignore-errors", "--newline", "--no-colors",
+                            "--restrict-filenames", "--concurrent-fragments", fragments,
+                            "--socket-timeout", "10", "--extractor-retries", "0",
+                            "--retries", "1", "--fragment-retries", "1", "--file-access-retries", "1",
+                            "--buffer-size", "1M", "--progress-delta", "1",
                             "--paths", job->folder.u8string(),
                             "--output", "%(playlist_index)03d - %(title)s [%(id)s].%(ext)s"};
-                        if (workers > 1) {
-                            // Each worker takes every workers-th item of the listed playlist.
-                            // An open-ended stride keeps even very large playlists within OS argument limits.
-                            args.insert(args.end(), {"--playlist-items",
-                                std::to_string(worker + 1) + "::" + std::to_string(workers)});
-                        }
                         if (mode == "audio") args.insert(args.end(), {"--format", "bestaudio/best",
                             "--extract-audio", "--audio-format", "mp3", "--embed-metadata",
                             "--embed-thumbnail", "--convert-thumbnails", "jpg",
@@ -284,7 +328,9 @@ int main(int argc, char** argv) {
                             "--parse-metadata", "%(playlist_index|)s:%(meta_track)s"});
                         else args.insert(args.end(), {"--format", "bv*[height<=1080]+ba/b[height<=1080]/b",
                             "--format-sort", "vcodec:h264,res:1080,acodec:m4a", "--merge-output-format", "mp4"});
-                        args.insert(args.end(), {"--", url});
+                        if (!downloads.empty()) args.insert(args.end(), {"--load-info-json",
+                            (job->folder / ("worker-" + std::to_string(worker) + ".json")).u8string()});
+                        else args.insert(args.end(), {"--", url}); // Listing unavailable: let the engine resolve the URL.
                         return args;
                     };
                     std::vector<int> codes(workers, 1);

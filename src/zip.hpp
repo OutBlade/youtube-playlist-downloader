@@ -32,26 +32,25 @@ inline void make_zip(const std::filesystem::path& destination,
         uint32_t crc = 0xffffffff;
         std::ifstream input(file, std::ios::binary);
         if (!input) throw std::runtime_error("Could not read downloaded file");
-        while (input.read(buffer.data(), buffer.size()) || input.gcount()) {
-            for (std::streamsize i = 0; i < input.gcount(); ++i) {
-                crc = (crc >> 8) ^ table[(crc ^ static_cast<unsigned char>(buffer[static_cast<size_t>(i)])) & 255];
-            }
-        }
-        entry.crc = crc ^ 0xffffffff;
-        if (!input.eof()) throw std::runtime_error("Could not read downloaded file");
-        put(0x04034b50, 4); put(45, 2); put(0x800, 2); put(0, 2);
+        // A ZIP64 data descriptor lets CRC calculation and copying share one disk pass.
+        put(0x04034b50, 4); put(45, 2); put(0x808, 2); put(0, 2);
         put(0, 2); put(0x21, 2); put(entry.crc, 4); put(0xffffffff, 4); put(0xffffffff, 4);
         put(entry.name.size(), 2); put(20, 2);
         out << entry.name;
         put(1, 2); put(16, 2); put(entry.size, 8); put(entry.size, 8);
-        input.clear(); input.seekg(0);
-        while (input.read(buffer.data(), buffer.size()) || input.gcount()) out.write(buffer.data(), input.gcount());
+        while (input.read(buffer.data(), buffer.size()) || input.gcount()) {
+            for (std::streamsize i = 0; i < input.gcount(); ++i)
+                crc = (crc >> 8) ^ table[(crc ^ static_cast<unsigned char>(buffer[static_cast<size_t>(i)])) & 255];
+            out.write(buffer.data(), input.gcount());
+        }
         if (!input.eof() || !out) throw std::runtime_error("Could not write downloaded file to ZIP");
+        entry.crc = crc ^ 0xffffffff;
+        put(0x08074b50, 4); put(entry.crc, 4); put(entry.size, 8); put(entry.size, 8);
         entries.push_back(entry);
     }
     const auto directory = static_cast<uint64_t>(out.tellp());
     for (const auto& entry : entries) {
-        put(0x02014b50, 4); put(45, 2); put(45, 2); put(0x800, 2); put(0, 2);
+        put(0x02014b50, 4); put(45, 2); put(45, 2); put(0x808, 2); put(0, 2);
         put(0, 2); put(0x21, 2); put(entry.crc, 4); put(0xffffffff, 4); put(0xffffffff, 4);
         put(entry.name.size(), 2); put(28, 2); put(0, 2); put(0, 2);
         put(0, 2); put(0, 4); put(0xffffffff, 4); out << entry.name;
