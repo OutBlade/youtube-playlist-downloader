@@ -68,6 +68,38 @@ Queue state and completed files are held in the server container, so active and
 waiting jobs restart if the server process is restarted; users can submit them
 again afterward. Completed files expire after one hour and are removed on restart.
 
+### Free Oracle Cloud setup
+
+The repository includes `deploy/oracle-free-bootstrap.sh` for an Oracle Cloud
+Always Free Ampere A1 VM running Ubuntu 24.04 ARM64. Oracle's current Always
+Free A1 allowance is 2 OCPUs and 12 GB RAM total, plus 10 TB monthly outbound
+transfer. The bootstrap configures the downloader for those limits, uses
+`sslip.io` for HTTPS so a separate domain is not required, and prints the
+PowerShell command that publishes the API address to the `backend` branch.
+
+Create only an instance marked **Always Free Eligible**, with 2 OCPUs, 12 GB
+RAM, a 50 GB boot volume, and a public IPv4 address. In its VCN security list,
+allow inbound TCP 80 and 443 from the internet and TCP 22 only from your own
+public IP. SSH to the VM as `ubuntu`, then run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/OutBlade/youtube-playlist-downloader/main/deploy/oracle-free-bootstrap.sh -o /tmp/blade-bootstrap.sh
+sudo bash /tmp/blade-bootstrap.sh
+```
+
+Copy the printed `API_DOMAIN` address to your Windows checkout and publish it:
+
+```powershell
+.\deploy\publish-backend.ps1 -Address https://YOUR_API_DOMAIN
+```
+
+Oracle requires account verification with a payment card; its documentation
+says the card is not charged unless the account is upgraded, though a temporary
+verification hold may appear. Keep the instance within the Always Free limits
+and do not upgrade it to a paid account. Oracle may reclaim an Always Free VM
+after seven days when CPU, network, and (for A1) memory utilization remain low,
+so this free setup cannot guarantee uninterrupted hosting for a quiet site.
+
 To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
 `ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.
 By default it listens on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to expose it to a
