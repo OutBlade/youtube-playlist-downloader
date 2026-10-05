@@ -34,6 +34,8 @@ class Web(unittest.TestCase):
             env['YTPLAYLIST_TEST_COUNT'] = '30'
         if self._testMethodName == 'test_unavailable_items_never_reach_workers':
             env['YTPLAYLIST_TEST_UNAVAILABLE'] = '1'
+        if self._testMethodName == 'test_single_video_downloads':
+            env['YTPLAYLIST_TEST_SINGLE'] = '1'
         if self._testMethodName in ['test_downloads_wait_in_fifo_queue', 'test_playlists_download_concurrently']:
             env['TRUST_PROXY'] = '1'
             env['YTPLAYLIST_TEST_WAIT_FILE'] = str(Path(self.temp.name) / 'continue-listing')
@@ -118,6 +120,27 @@ class Web(unittest.TestCase):
             with self.assertRaises(HTTPError) as caught:
                 self.request(path, {})
             self.assertEqual(caught.exception.code, expected)
+
+    def test_single_video_downloads(self):
+        code, body, _ = self.request('/api/jobs', {
+            'url': 'https://www.youtube.com/watch?v=abc', 'mode': 'audio'})
+        self.assertEqual(code, 202)
+        job_id = json.loads(body)['id']
+        for _ in range(100):
+            _, body, _ = self.request('/api/jobs/' + job_id)
+            job = json.loads(body)
+            if job['state'] in ['complete', 'failed', 'partial']:
+                break
+            time.sleep(.1)
+        self.assertEqual(job['state'], 'complete', job)
+        self.assertEqual(len(job['items']), 1)
+        self.assertEqual(job['items'][0]['id'], 'abc')
+        self.assertEqual(len(job['files']), 1)
+        self.assertEqual(job['files'][0]['name'], 'test [abc].mp3')
+        _, content, _ = self.request(job['archive'])
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            self.assertIsNone(archive.testzip())
+            self.assertEqual(archive.read('test [abc].mp3'), b'test media payload')
 
     def test_downloads_wait_in_fifo_queue(self):
         body = {'url': 'https://youtube.com/playlist?list=TEST', 'mode': 'audio'}

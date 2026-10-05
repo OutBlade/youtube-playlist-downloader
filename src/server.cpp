@@ -322,19 +322,24 @@ int main(int argc, char** argv) {
                         }
                         // URL-transparent entries preserve track/album metadata while the engine
                         // retrieves fresh formats, without requesting the original playlist again.
-                        downloads.push_back({{"_type", "url_transparent"}, {"ie_key", "Youtube"},
+                        json download{{"_type", "url_transparent"}, {"ie_key", "Youtube"},
                             {"url", "https://www.youtube.com/watch?v=" + id},
                             // This standard cover avoids probing speculative high-resolution variants.
                             {"thumbnails", json::array({{{"url", "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"},
                                 {"id", "cover"}, {"width", 480}, {"height", 360}}})},
-                            {"playlist_title", title}, {"playlist", title},
-                            {"playlist_index", item.contains("playlist_index") && item["playlist_index"].is_number_integer() ?
-                                item["playlist_index"] : json(items.size())}});
+                            {"playlist_title", title}, {"playlist", title}};
+                        // A direct video is not playlist item 1. Preserve absent metadata so
+                        // yt-dlp creates a clean video filename instead of a synthetic index.
+                        if (item.contains("playlist_index") && item["playlist_index"].is_number_integer())
+                            download["playlist_index"] = item["playlist_index"];
+                        downloads.push_back(std::move(download));
                     }
                     list.close();
                     {
                         std::lock_guard<std::mutex> guard(mutex);
-                        job->items = items; job->title = title; job->state = "downloading";
+                        job->items = items;
+                        job->title = title.empty() && items.size() == 1 ? items[0].value("title", std::string()) : title;
+                        job->state = "downloading";
                     }
                     if (job->cancel) throw std::runtime_error("Download cancelled.");
                     if (downloads.empty() && !items.empty())

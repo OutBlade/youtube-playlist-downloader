@@ -54,7 +54,9 @@ int finish(const std::vector<std::string>& args) {
     if (std::getenv("YTPLAYLIST_TEST_MEDIA")) {
         for (size_t i = 0; i + 1 < args.size(); ++i) {
             if (args[i] == "--paths") {
-                std::ofstream media(std::filesystem::u8path(args[i + 1]) / "001 - test [abc].mp3", std::ios::binary);
+                const auto filename = std::getenv("YTPLAYLIST_TEST_SINGLE") ?
+                    "NA - test [abc].mp3" : "001 - test [abc].mp3";
+                std::ofstream media(std::filesystem::u8path(args[i + 1]) / filename, std::ios::binary);
                 media << "test media payload";
                 std::cout << "[youtube] abc: Downloading webpage\n[download] Downloading item 1 of 1\n"
                              "[download] 100.0%\n" << std::flush;
@@ -64,8 +66,13 @@ int finish(const std::vector<std::string>& args) {
                 for (int attempt = 0; wait_file && !std::filesystem::exists(wait_file) && attempt < 500; ++attempt)
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 std::ofstream list(std::filesystem::u8path(args[i + 2]), std::ios::binary);
-                list << R"({"id": "abc", "title": "Test", "duration": 19, "playlist_title": "List"})" << '\n'
-                     << R"({"id": "gone", "title": "Missing", "duration": null, "playlist_title": "List"})" << '\n';
+                if (std::getenv("YTPLAYLIST_TEST_SINGLE")) {
+                    // A direct video extract has no playlist title or position.
+                    list << R"({"id": "abc", "title": "Test", "duration": 19})" << '\n';
+                } else {
+                    list << R"({"id": "abc", "title": "Test", "duration": 19, "playlist_title": "List"})" << '\n'
+                         << R"({"id": "gone", "title": "Missing", "duration": null, "playlist_title": "List"})" << '\n';
+                }
             }
         }
     }
