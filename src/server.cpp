@@ -5,7 +5,9 @@
 #include "json.hpp"
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <cctype>
+#include <deque>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -23,6 +25,25 @@ struct Job {
     json items = json::array();
     Clock::time_point completed;
     int code = -1;
+};
+class WorkerBudget {
+public:
+    explicit WorkerBudget(size_t limit) : available_(limit) {}
+    bool acquire(const std::atomic<bool>& cancel) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        ready_.wait(lock, [&] { return available_ > 0 || cancel.load(); });
+        if (cancel) return false;
+        --available_;
+        return true;
+    }
+    void release() {
+        { std::lock_guard<std::mutex> lock(mutex_); ++available_; }
+        ready_.notify_one();
+    }
+private:
+    std::mutex mutex_;
+    std::condition_variable ready_;
+    size_t available_;
 };
 bool finished(const Job& job) {
     return job.state == "complete" || job.state == "partial" || job.state == "failed" ||
@@ -157,14 +178,18 @@ int main(int argc, char** argv) {
         } catch (const std::exception& error) { std::cerr << error.what() << '\n'; }
 
         std::mutex mutex;
+        std::condition_variable available_job;
         std::map<std::string, std::shared_ptr<Job>> jobs;
+        std::deque<std::string> queue;
         std::map<std::string, Clock::time_point> visitors;
-        bool busy = false;
+        size_t active_jobs = 0;
         const bool proxied = setting("TRUST_PROXY", "0") == "1";
         // A static copy of the website on another origin may use this server.
         const auto partner = setting("ALLOWED_ORIGIN", "");
         // Playlist items are downloaded by this many yt-dlp processes at once.
         const size_t parallel = static_cast<size_t>(std::clamp(std::stoi(setting("WORKERS", "16")), 1, 32));
+        WorkerBudget worker_budget(parallel);
+        const size_t max_active_jobs = static_cast<size_t>(std::clamp(std::stoi(setting("MAX_ACTIVE_JOBS", "2")), 1, 16));
         const auto fragments = std::to_string(std::clamp(std::stoi(setting("FRAGMENTS", "8")), 1, 32));
         httplib::Server server;
         server.set_payload_max_length(4096);
@@ -222,21 +247,44 @@ int main(int argc, char** argv) {
                 if (Clock::now() - it->second > std::chrono::minutes(1)) it = visitors.erase(it);
                 else ++it;
             }
-            if (busy) { reply(res, 429, {{"error", "The downloader is busy. Try again in a moment."}}); return; }
             const auto visitor = client(req, proxied);
             if (visitors.count(visitor)) {
                 reply(res, 429, {{"error", "Please wait a minute before starting another download."}}); return;
             }
-            if (jobs.size() >= 100 || fs::space(root).available < 4ull * 1024 * 1024 * 1024) {
+            size_t pending = 0;
+            for (const auto& entry : jobs) if (!finished(*entry.second)) ++pending;
+            const auto queue_limit = static_cast<size_t>(std::clamp(std::stoi(setting("QUEUE_LIMIT", "100")), 1, 1000));
+            if (pending >= queue_limit) {
+                reply(res, 503, {{"error", "The download queue is full. Please try again later."}}); return;
+            }
+            if (jobs.size() >= 1000 || fs::space(root).available < 4ull * 1024 * 1024 * 1024) {
                 reply(res, 503, {{"error", "Download storage is full. Please try again later."}}); return;
             }
             auto job = std::make_shared<Job>();
-            job->id = identifier(); job->folder = root / job->id;
+            job->id = identifier(); job->folder = root / job->id; job->state = "queued";
             fs::create_directory(job->folder);
             job->visitor = visitor;
             jobs[job->id] = job;
-            visitors[visitor] = Clock::now(); busy = true;
+            visitors[visitor] = Clock::now();
+            queue.push_back(job->id);
             std::thread([&, job, url, mode] {
+                {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    available_job.wait(lock, [&] {
+                        return job->cancel || (active_jobs < max_active_jobs && !queue.empty() && queue.front() == job->id);
+                    });
+                    if (job->cancel) {
+                        queue.erase(std::remove(queue.begin(), queue.end(), job->id), queue.end());
+                        job->completed = Clock::now(); job->state = "cancelled";
+                        job->message = "Download cancelled."; visitors.erase(job->visitor);
+                        available_job.notify_all();
+                        return;
+                    }
+                    queue.pop_front();
+                    ++active_jobs;
+                    job->state = "reading";
+                    available_job.notify_all();
+                }
                 try {
                     // The playlist is listed first so the page can show every item while it downloads.
                     try {
@@ -340,10 +388,13 @@ int main(int argc, char** argv) {
                     std::vector<int> codes(workers, 1);
                     std::vector<std::thread> pool;
                     for (size_t worker = 0; worker < workers; ++worker) pool.emplace_back([&, worker] {
+                        if (!worker_budget.acquire(job->cancel)) { codes[worker] = 125; return; }
                         try {
-                            codes[worker] = run(arguments(worker), job->folder / (workers > 1 ?
+                            if (job->cancel) codes[worker] = 125;
+                            else codes[worker] = run(arguments(worker), job->folder / (workers > 1 ?
                                 "progress-" + std::to_string(worker) + ".log" : "progress.log"), 0, &job->cancel);
                         } catch (const std::exception&) {}
+                        worker_budget.release();
                     });
                     for (auto& thread : pool) thread.join();
                     int code = 0;
@@ -387,9 +438,10 @@ int main(int argc, char** argv) {
                     }
                 }
                 std::lock_guard<std::mutex> guard(mutex);
-                busy = false;
+                --active_jobs;
+                available_job.notify_all();
             }).detach();
-            reply(res, 202, {{"id", job->id}, {"state", job->state}});
+            reply(res, 202, {{"id", job->id}, {"state", "queued"}});
         });
         server.Get(R"(/api/jobs/([a-f0-9]{32}))", [&](const httplib::Request& req, httplib::Response& res) {
             std::lock_guard<std::mutex> lock(mutex);
@@ -417,6 +469,7 @@ int main(int argc, char** argv) {
             if (found == jobs.end()) { reply(res, 404, {{"error", "This download has expired. Start a new one."}}); return; }
             if (finished(*found->second)) { reply(res, 409, {{"error", "This download has already finished."}}); return; }
             found->second->cancel = true;
+            available_job.notify_all();
             reply(res, 202, {{"id", found->second->id}, {"state", "cancelling"}});
         });
         auto send_file = [&](const httplib::Request& req, httplib::Response& res, bool archive) {

@@ -144,12 +144,15 @@ function render(job) {
     percentages.length ? Number(percentages.at(-1)[1]) : null;
   const fraction = items.length ? Math.min(1, (settled + (percent || 0) / 100) / items.length) : null;
 
-  stateLabel.textContent = complete ? 'Ready to save' : failed ? 'Download failed' : 'In progress';
+  stateLabel.textContent = complete ? 'Ready to save' : failed ? 'Download failed' :
+    job.state === 'queued' ? 'In queue' : 'In progress';
   document.querySelector('#job-title').textContent = failed ? 'Couldn’t download this playlist' :
     job.title || (items.length === 1 && items[0].title) || (complete ? 'Your playlist is ready' :
+    job.state === 'queued' ? 'You’re in the download queue' :
     job.state === 'reading' ? 'Reading your playlist' : 'Downloading your playlist');
   const item = [...(job.log || '').matchAll(/Downloading item (\d+) of (\d+)/g)].at(-1);
   document.querySelector('#job-detail').textContent =
+    job.state === 'queued' ? 'Waiting for the next available download slot' :
     job.state === 'packing' ? 'Preparing your ZIP…' :
     items.length ? `${saved} of ${items.length} saved` :
     complete ? `${job.files.length} file${job.files.length === 1 ? '' : 's'}` :
@@ -158,7 +161,9 @@ function render(job) {
   if (job.state === 'downloading' && fraction !== null) progress.value = fraction * 100;
   else if (job.state === 'downloading' && percent !== null) progress.value = percent;
   else progress.removeAttribute('value');
-  document.querySelector('#job-message').textContent = job.message || 'Keep this page open while your files are prepared.';
+  document.querySelector('#job-message').textContent = job.state === 'queued' ?
+    'Your place is saved. Keep this page open while your playlist waits.' :
+    job.message || 'Keep this page open while your files are prepared.';
   document.querySelector('#job-log').textContent = job.log || 'Reading your playlist…';
   archive.hidden = !complete;
   cancel.hidden = complete || failed;

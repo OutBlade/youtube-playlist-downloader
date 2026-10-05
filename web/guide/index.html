@@ -76,7 +76,7 @@
         </section>
         <section aria-labelledby="trouble-title">
           <h2 id="trouble-title">If the downloader is busy or offline</h2>
-          <p>The public backend processes one playlist at a time and runs on the owner's computer. It needs that computer and its network connection to stay online. A busy message means another playlist is still being processed; try again after it finishes.</p>
+          <p>Playlists enter a shared first-in, first-out queue. BLADE can process up to two playlists at a time while sharing its 16 parallel download workers. The public service needs its host and network connection to stay online.</p>
           <p>Download starts are limited to one per client IP per minute. If you just started or cancelled a job, wait a minute before trying again. You can cancel an active download using the Cancel download button.</p>
           <p>Save completed files promptly. They expire one hour after the job finishes and are removed when the server restarts. An old download link cannot recover an expired file.</p>
         </section>

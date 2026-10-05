@@ -7,6 +7,8 @@
 #include <iomanip>
 #include <sstream>
 #include <regex>
+#include <chrono>
+#include <thread>
 int finish(const std::vector<std::string>& args) {
     if (const char* count_text = std::getenv("YTPLAYLIST_TEST_COUNT")) {
         const int count = std::atoi(count_text);
@@ -58,6 +60,9 @@ int finish(const std::vector<std::string>& args) {
                              "[download] 100.0%\n" << std::flush;
             }
             if (args[i] == "--print-to-file" && i + 2 < args.size()) {
+                const char* wait_file = std::getenv("YTPLAYLIST_TEST_WAIT_FILE");
+                for (int attempt = 0; wait_file && !std::filesystem::exists(wait_file) && attempt < 500; ++attempt)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 std::ofstream list(std::filesystem::u8path(args[i + 2]), std::ios::binary);
                 list << R"({"id": "abc", "title": "Test", "duration": 19, "playlist_title": "List"})" << '\n'
                      << R"({"id": "gone", "title": "Missing", "duration": null, "playlist_title": "List"})" << '\n';

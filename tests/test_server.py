@@ -34,6 +34,11 @@ class Web(unittest.TestCase):
             env['YTPLAYLIST_TEST_COUNT'] = '30'
         if self._testMethodName == 'test_unavailable_items_never_reach_workers':
             env['YTPLAYLIST_TEST_UNAVAILABLE'] = '1'
+        if self._testMethodName in ['test_downloads_wait_in_fifo_queue', 'test_playlists_download_concurrently']:
+            env['TRUST_PROXY'] = '1'
+            env['YTPLAYLIST_TEST_WAIT_FILE'] = str(Path(self.temp.name) / 'continue-listing')
+        if self._testMethodName == 'test_downloads_wait_in_fifo_queue':
+            env['MAX_ACTIVE_JOBS'] = '1'
         self.log = open(Path(self.temp.name) / 'server.log', 'w')
         self.addCleanup(self.log.close)
         self.server = subprocess.Popen([SERVER], env=env, stdout=self.log, stderr=self.log)
@@ -113,6 +118,66 @@ class Web(unittest.TestCase):
             with self.assertRaises(HTTPError) as caught:
                 self.request(path, {})
             self.assertEqual(caught.exception.code, expected)
+
+    def test_downloads_wait_in_fifo_queue(self):
+        body = {'url': 'https://youtube.com/playlist?list=TEST', 'mode': 'audio'}
+        headers = {'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.10'}
+        _, first, _ = self.request('/api/jobs', body, headers)
+        first_id = json.loads(first)['id']
+        for _ in range(100):
+            _, first_status, _ = self.request('/api/jobs/' + first_id)
+            first_job = json.loads(first_status)
+            if first_job['state'] == 'reading':
+                break
+            time.sleep(.05)
+        self.assertEqual(first_job['state'], 'reading', first_job)
+        headers['X-Forwarded-For'] = '198.51.100.11'
+        _, second, _ = self.request('/api/jobs', body, headers)
+        second_id = json.loads(second)['id']
+        _, status, _ = self.request('/api/jobs/' + second_id)
+        self.assertEqual(json.loads(status)['state'], 'queued')
+        (Path(self.temp.name) / 'continue-listing').touch()
+        for _ in range(100):
+            _, first_status, _ = self.request('/api/jobs/' + first_id)
+            _, second_status, _ = self.request('/api/jobs/' + second_id)
+            first_job, second_job = json.loads(first_status), json.loads(second_status)
+            if first_job['state'] == 'complete' and second_job['state'] == 'complete':
+                break
+            time.sleep(.1)
+        self.assertEqual(first_job['state'], 'complete', first_job)
+        self.assertEqual(second_job['state'], 'complete', second_job)
+
+    def test_playlists_download_concurrently(self):
+        body = {'url': 'https://youtube.com/playlist?list=TEST', 'mode': 'audio'}
+        headers = {'Content-Type': 'application/json', 'X-Forwarded-For': '198.51.100.20'}
+        _, first, _ = self.request('/api/jobs', body, headers)
+        first_id = json.loads(first)['id']
+        for _ in range(100):
+            _, status, _ = self.request('/api/jobs/' + first_id)
+            if json.loads(status)['state'] == 'reading':
+                break
+            time.sleep(.05)
+        self.assertEqual(json.loads(status)['state'], 'reading')
+        headers['X-Forwarded-For'] = '198.51.100.21'
+        _, second, _ = self.request('/api/jobs', body, headers)
+        second_id = json.loads(second)['id']
+        for _ in range(100):
+            _, status, _ = self.request('/api/jobs/' + second_id)
+            second_job = json.loads(status)
+            if second_job['state'] == 'reading':
+                break
+            time.sleep(.05)
+        self.assertEqual(second_job['state'], 'reading', second_job)
+        (Path(self.temp.name) / 'continue-listing').touch()
+        for _ in range(100):
+            _, first_status, _ = self.request('/api/jobs/' + first_id)
+            _, second_status, _ = self.request('/api/jobs/' + second_id)
+            first_job, second_job = json.loads(first_status), json.loads(second_status)
+            if first_job['state'] == 'complete' and second_job['state'] == 'complete':
+                break
+            time.sleep(.1)
+        self.assertEqual(first_job['state'], 'complete', first_job)
+        self.assertEqual(second_job['state'], 'complete', second_job)
 
 
     def test_more_than_25_items_are_all_downloaded(self):

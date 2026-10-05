@@ -1,0 +1,4 @@
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy downloader:8080
+}

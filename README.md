@@ -8,15 +8,16 @@ choose video or MP3, watch every item arrive with its thumbnail, and save the ZI
 Free and open source, with no signup and no application playlist-size cap.
 Known private/deleted entries are skipped before download workers start.
 See the [MP3 and video download guide](https://outblade.github.io/youtube-playlist-downloader/guide/)
-for formats, ZIP archives, and troubleshooting. The shared public backend must
-be online and handles one playlist at a time; you can run your own copy below.
+for formats, ZIP archives, and troubleshooting. Playlists enter a shared FIFO
+queue. The public downloader currently runs on the owner's computer; the
+production Docker/Caddy setup below is ready for migration to an always-on host.
 
 ## Website
 
 The page is published on GitHub Pages and stays at one address. Pages cannot
-run downloads, so the page talks to the C++ server, which runs in Docker on a
-computer you control and is reached through a Cloudflare quick tunnel. No
-account or domain is needed.
+run downloads, so the page talks to a separate C++ server. The current public
+instance uses a Cloudflare quick tunnel to the owner's computer; the permanent
+server recipe uses Docker, Caddy HTTPS, and persistent volumes.
 
 ```powershell
 ./start-public.ps1 -Watch
@@ -24,7 +25,7 @@ account or domain is needed.
 
 The script starts Docker if needed, starts the server and its tunnel, and
 publishes the tunnel's current HTTPS address to the `backend` branch, where the
-page looks it up. The tunnel address changes whenever the tunnel restarts;
+page looks it up. The quick-tunnel address changes whenever the tunnel restarts;
 `-Watch` republishes it within a minute. While the computer is off, the page
 says the downloader is offline and reconnects on its own.
 
@@ -42,6 +43,31 @@ Host header. `TRUST_PROXY=1` makes the per-visitor limit use the address
 reported by the proxy. `ALLOWED_ORIGIN` names the one other website origin
 that may use the server; both are set in `compose.yaml`.
 
+To prepare an always-on Linux host, point a DNS A record at its fixed public IP,
+allow inbound TCP ports 80 and 443 (plus UDP 443 for HTTP/3), copy
+`.env.production.example` to `.env`, and set `API_DOMAIN` to the DNS name. Then
+run:
+
+```sh
+docker compose -f compose.production.yaml up --build -d
+```
+
+Caddy obtains and renews the HTTPS certificate automatically. A named volume
+preserves its certificate data across container rebuilds, and Docker restarts
+the server after a host reboot. The server still needs a host
+that is kept running, adequate disk space, and a network route YouTube accepts.
+After deployment, publish `{"url":"https://YOUR_API_DOMAIN"}` as
+`backend.json` on the repository's `backend` branch so the GitHub Pages site
+connects to the permanent API. Tune the production CPU, memory, worker, and
+queue settings for the selected host. The backend runs up to
+`BLADE_MAX_ACTIVE_JOBS` playlists (2 by default) from a FIFO queue, with a
+shared cap of `BLADE_WORKERS` downloader processes (16 by default). This lets
+visitors download at the same time without multiplying the server's worker
+budget. It accepts up to `BLADE_QUEUE_LIMIT` jobs (100 by default).
+Queue state and completed files are held in the server container, so active and
+waiting jobs restart if the server process is restarted; users can submit them
+again afterward. Completed files expire after one hour and are removed on restart.
+
 To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
 `ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.
 By default it listens on `127.0.0.1:8080`. Set `HOST=0.0.0.0` to expose it to a
@@ -50,8 +76,11 @@ hosting platform. The server honors `PORT`, `WEB_ROOT`, `DOWNLOAD_ROOT`,
 environment variables.
 
 The playlist is fetched once and divided into worker queues, balancing known
-video durations so long videos start early. `WORKERS` sets how many yt-dlp
-processes run at once (16 by default, at most 32). `FRAGMENTS` controls concurrent
+video durations so long videos start early. `WORKERS` sets the shared maximum
+number of yt-dlp processes for all active playlists (16 by default, at most 32).
+`MAX_ACTIVE_JOBS` sets how many playlists may download at once (2 by default,
+at most 16). `QUEUE_LIMIT` sets the maximum number of waiting plus active jobs
+(100 by default, at most 1000). `FRAGMENTS` controls concurrent
 fragments per video (8 by default, at most 32); it applies to fragmented streams.
 Known private/deleted placeholders are skipped before extraction. Newly unavailable
 videos skip on the first permanent extraction error, without extractor retries.
@@ -63,14 +92,15 @@ MP3 files carry the title, uploader, playlist name as album, track number and
 the standard 480 x 360 YouTube thumbnail as cover art, without probing larger
 thumbnail variants that may return 404.
 
-The public server processes one playlist at a time without an application-imposed
-item-count, file-size, ZIP-size, or total download-duration cap. ZIP64 archives
+The public server processes playlists from a FIFO queue without an
+application-imposed item-count, file-size, ZIP-size, or total download-duration cap. ZIP64 archives
 support large files and playlists with more than 65,535 entries. Video remains
 1080p MP4 (H.264 where available). Actual capacity depends on server storage,
 memory, network access, and YouTube availability. The server requires at least
 4 GiB free before accepting a job. One download start
-per client IP per minute is allowed; a reverse proxy may group visitors under
-one IP. Files expire one hour after the job finishes and are removed on restart.
+per client IP per minute is allowed. Files expire one hour after the job finishes
+and are removed on server restart. In-progress work itself does not survive a
+server restart.
 Job URLs contain random identifiers: treat them as private download links.
 Only recognized media files are exposed, and starts from any other origin
 than `ALLOWED_ORIGIN` are rejected.

@@ -1,0 +1,53 @@
+services:
+  downloader:
+    build: .
+    restart: unless-stopped
+    init: true
+    mem_limit: ${BLADE_MEMORY_LIMIT:-8g}
+    cpus: ${BLADE_CPU_LIMIT:-4}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      DOWNLOAD_ROOT: /app/downloads
+      TRUST_PROXY: "1"
+      ALLOWED_ORIGIN: https://outblade.github.io
+      WORKERS: ${BLADE_WORKERS:-16}
+      FRAGMENTS: ${BLADE_FRAGMENTS:-8}
+      MAX_ACTIVE_JOBS: ${BLADE_MAX_ACTIVE_JOBS:-2}
+      QUEUE_LIMIT: ${BLADE_QUEUE_LIMIT:-100}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8080/api/health'))['ready']"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    networks: [blade]
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      downloader:
+        condition: service_healthy
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - blade-caddy-data:/data
+      - blade-caddy-config:/config
+    networks: [blade]
+
+networks:
+  blade:
+
+volumes:
+  blade-caddy-data:
+  blade-caddy-config:
