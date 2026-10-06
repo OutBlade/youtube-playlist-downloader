@@ -1,0 +1,21 @@
+name: Keep Free Backend Awake
+
+on:
+  schedule:
+    # Run every 14 minutes to prevent free cloud servers (like Render) from sleeping
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          URL=$(curl -fsSL "https://raw.githubusercontent.com/OutBlade/youtube-playlist-downloader/backend/backend.json" 2>/dev/null | grep -o 'https://[^" ]*' | head -n1) || true
+          if [ -n "$URL" ]; then
+            echo "Pinging backend at $URL/api/health"
+            curl -fsS --max-time 45 "$URL/api/health" || echo "Backend ping timed out or offline."
+          else
+            echo "No active backend URL found in backend.json."
+          fi

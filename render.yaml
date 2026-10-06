@@ -1,7 +1,7 @@
-# Optional 1-click deployment blueprint for Render.com Free Tier
-# Note: For maximum speed and no sleeping, Oracle Cloud Always Free Ampere A1
-# (4 OCPUs, 24 GB RAM, 10 TB bandwidth) is the recommended fastest free server.
-# This Render configuration is provided as an instant zero-card fallback.
+# 1-Click Deployment Blueprint for Render.com Free Tier (NO credit card required)
+# 1. Sign up for free at https://render.com (with your GitHub account, no credit card needed).
+# 2. Click New -> Blueprint -> Connect this repository.
+# 3. Render builds and provisions your free HTTPS service automatically.
 services:
   - type: web
     name: youtube-playlist-downloader
@@ -20,7 +20,7 @@ services:
       - key: TRUST_PROXY
         value: "1"
       - key: WORKERS
-        value: "4"
+        value: "2"
       - key: FRAGMENTS
         value: "4"
       - key: MAX_ACTIVE_JOBS

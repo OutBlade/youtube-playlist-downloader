@@ -25,8 +25,8 @@ function notice(text, error = false) {
   message.textContent = text;
   message.classList.toggle('error', error);
 }
-async function api(path, options = {}) {
-  const response = await fetch(base + path, {...options, signal: AbortSignal.timeout(15000)});
+async function api(path, options = {}, timeoutMs = 15000) {
+  const response = await fetch(base + path, {...options, signal: AbortSignal.timeout(timeoutMs)});
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(data.error || 'The downloader could not be reached. Please try again.');
@@ -252,7 +252,9 @@ async function connect() {
   address = address.trim().replace(/\/+$/, '');
   if (!/^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(address)) throw new Error('No server address');
   base = `${address}/`;
-  return (await api('api/health')).ready === true;
+  notice('Connecting to free cloud server…');
+  // Free tier servers (like Render) sleep when idle; give them up to 60s to wake up
+  return (await api('api/health', {}, 60000)).ready === true;
 }
 async function initialize() {
   try {

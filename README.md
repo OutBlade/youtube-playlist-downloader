@@ -68,55 +68,42 @@ Queue state and completed files are held in the server container, so active and
 waiting jobs restart if the server process is restarted; users can submit them
 again afterward. Completed files expire after one hour and are removed on restart.
 
-### Fastest free hosting: Oracle Cloud Always Free
+### Free cloud server hosting: Render (no credit card required)
 
-For always-on, high-speed public hosting, an **Oracle Cloud Always Free Ampere A1 VM**
-running Ubuntu (22.04 or 24.04 ARM64) provides the fastest free server infrastructure
-available:
-- **Up to 4 OCPUs (ARM64 Ampere cores) and 24 GB RAM** with 200 GB NVMe storage at $0/month.
-- **10 TB monthly outbound data transfer** on a high-speed network.
-- **Auto-tuned concurrency**: `deploy/oracle-free-bootstrap.sh` automatically detects
-  the instance's cores and RAM, configuring up to 16 parallel yt-dlp workers, 8 concurrent
-  fragments, and up to 4 simultaneous playlist jobs.
-- **Reclamation protection**: installs an automated, low-overhead keepalive daemon
-  (`blade-keepalive.service`) that maintains baseline activity at low priority so
-  Oracle does not reclaim or terminate the idle VM after 7 days.
-- **Instant HTTPS**: automatically provisions an SSL domain via `sslip.io` and Caddy,
-  supporting HTTP/3 and automatic certificate renewals.
+The fastest and easiest way to host the backend for free **without entering a credit card** is **[Render](https://render.com)**:
+- **100% Free**: No payment card, credit card, or billing verification required.
+- **Automatic HTTPS**: Provides a free permanent URL (e.g. `https://your-app.onrender.com`) with instant SSL.
+- **Docker-native**: Runs the container with yt-dlp, ffmpeg, Deno, and the C++ engine.
+- **24/7 Keepalive**: The repository includes `.github/workflows/keepalive.yml` which automatically pings your server every 14 minutes so it stays awake 24/7 without sleeping.
 
-Create an instance in Oracle Cloud marked **Always Free Eligible** (choose VM.Standard.A1.Flex,
-2 to 4 OCPUs, 12 to 24 GB RAM, 50–200 GB boot volume, and assign a public IPv4 address).
-In your VCN security list, ensure inbound TCP ports 80 and 443 (and UDP 443 for HTTP/3)
-are allowed from `0.0.0.0/0`, and SSH (port 22) is allowed.
+#### 1-Click Deploy
 
-SSH to your VM as `ubuntu`, then run:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/OutBlade/youtube-playlist-downloader)
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/OutBlade/youtube-playlist-downloader/main/deploy/oracle-free-bootstrap.sh -o /tmp/blade-bootstrap.sh
-sudo bash /tmp/blade-bootstrap.sh
-```
+1. Sign up for free at [render.com](https://render.com) using your GitHub account (no card needed).
+2. Click the button above (or in Render click **New +** → **Blueprint** → connect `OutBlade/youtube-playlist-downloader`).
+3. Render reads `render.yaml` and deploys your service. When ready, copy your service's URL (e.g. `https://youtube-playlist-downloader-xxxx.onrender.com`).
+4. **Connect the website to your new server:**
+   - **From GitHub (easiest):** Go to your repository's **Actions** tab → select **Set Backend URL** → click **Run workflow** and paste your Render URL.
+   - **Or from your terminal:**
+     ```powershell
+     .\deploy\publish-backend.ps1 -Address https://YOUR_APP.onrender.com
+     ```
 
-When bootstrap finishes, connect the GitHub Pages website to your new server:
+Once published, [https://outblade.github.io/youtube-playlist-downloader/](https://outblade.github.io/youtube-playlist-downloader/) will immediately route all downloads to your free cloud server!
 
-- **Directly from the server (Linux):**
+---
+
+### Alternative: Oracle Cloud Always Free (requires credit card)
+
+For users who have an Oracle Cloud account (which requires a payment card for identity verification), Oracle's Always Free Ampere A1 VM offers up to 4 ARM OCPUs and 24 GB RAM:
+- Auto-tuned concurrency: `deploy/oracle-free-bootstrap.sh` detects provisioned cores and RAM.
+- Reclamation protection: installs `blade-keepalive.service` to prevent 7-day idle reclamation.
+- SSH to the Ubuntu A1 instance and run:
   ```sh
-  /opt/blade/deploy/publish-backend.sh https://YOUR_API_DOMAIN
+  curl -fsSL https://raw.githubusercontent.com/OutBlade/youtube-playlist-downloader/main/deploy/oracle-free-bootstrap.sh -o /tmp/blade-bootstrap.sh
+  sudo bash /tmp/blade-bootstrap.sh
   ```
-- **Or from your Windows checkout:**
-  ```powershell
-  .\deploy\publish-backend.ps1 -Address https://YOUR_API_DOMAIN
-  ```
-
-Once published, [https://outblade.github.io/youtube-playlist-downloader/](https://outblade.github.io/youtube-playlist-downloader/)
-will automatically discover and connect to your fast free cloud backend.
-
-#### Alternative: 1-click Render free deployment
-
-If you prefer an instant cloud container without setting up a Linux VM, the repository
-includes `render.yaml` for Render's free Docker web service tier. Connect the repository
-in your Render dashboard to deploy. Note that Render's free tier provides 0.1 vCPU and
-512 MB RAM and sleeps after 15 minutes of inactivity; Oracle Cloud Always Free is
-significantly faster and has no cold starts.
 
 To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
 `ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.

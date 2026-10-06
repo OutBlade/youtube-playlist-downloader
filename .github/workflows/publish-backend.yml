@@ -1,0 +1,52 @@
+name: Set Backend URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Your free backend HTTPS URL (e.g. https://youtube-playlist-downloader.onrender.com)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate health and publish backend URL
+        run: |
+          ADDRESS="${{ inputs.url }}"
+          # Strip trailing slash
+          ADDRESS="${ADDRESS%/}"
+          
+          if [[ ! "$ADDRESS" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?$ ]]; then
+            echo "Error: Address must be a valid HTTPS URL (e.g. https://your-app.onrender.com)" >&2
+            exit 1
+          fi
+
+          echo "Checking backend health at $ADDRESS/api/health..."
+          # Allow up to 60s in case the server is waking up
+          HEALTH=$(curl -fsS --max-time 60 "$ADDRESS/api/health" || echo "")
+          if [[ ! "$HEALTH" =~ \"ready\":\ *true ]]; then
+            echo "Error: The backend at $ADDRESS is not reporting ready." >&2
+            echo "Received: $HEALTH" >&2
+            exit 1
+          fi
+
+          echo "Backend is ready! Publishing to 'backend' branch..."
+          TMP_DIR=$(mktemp -d)
+          echo "{\"url\":\"$ADDRESS\"}" > "$TMP_DIR/backend.json"
+          BLOB=$(git -c core.autocrlf=false hash-object -w "$TMP_DIR/backend.json")
+          export GIT_INDEX_FILE="$TMP_DIR/index"
+          git update-index --add --cacheinfo "100644,$BLOB,backend.json"
+          TREE=$(git write-tree)
+          unset GIT_INDEX_FILE
+          COMMIT=$(git commit-tree "$TREE" -m "Publish server address: $ADDRESS")
+          git push --force origin "${COMMIT}:refs/heads/backend"
+          echo "Successfully published $ADDRESS to backend branch!"
