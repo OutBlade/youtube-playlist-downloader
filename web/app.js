@@ -248,8 +248,9 @@ input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
 async function connect() {
   try { return (await api('api/health')).ready === true; } catch {}
   const response = await fetch(`${BACKEND_INDEX}?${Date.now()}`, {cache: 'no-store', signal: AbortSignal.timeout(10000)});
-  const address = (await response.json()).url;
-  if (!/^https:\/\/[a-z0-9.-]+$/.test(address)) throw new Error('No server address');
+  let address = (await response.json()).url || '';
+  address = address.trim().replace(/\/+$/, '');
+  if (!/^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(address)) throw new Error('No server address');
   base = `${address}/`;
   return (await api('api/health')).ready === true;
 }

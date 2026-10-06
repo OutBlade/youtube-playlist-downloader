@@ -68,37 +68,55 @@ Queue state and completed files are held in the server container, so active and
 waiting jobs restart if the server process is restarted; users can submit them
 again afterward. Completed files expire after one hour and are removed on restart.
 
-### Free Oracle Cloud setup
+### Fastest free hosting: Oracle Cloud Always Free
 
-The repository includes `deploy/oracle-free-bootstrap.sh` for an Oracle Cloud
-Always Free Ampere A1 VM running Ubuntu 24.04 ARM64. Oracle's current Always
-Free A1 allowance is 2 OCPUs and 12 GB RAM total, plus 10 TB monthly outbound
-transfer. The bootstrap configures the downloader for those limits, uses
-`sslip.io` for HTTPS so a separate domain is not required, and prints the
-PowerShell command that publishes the API address to the `backend` branch.
+For always-on, high-speed public hosting, an **Oracle Cloud Always Free Ampere A1 VM**
+running Ubuntu (22.04 or 24.04 ARM64) provides the fastest free server infrastructure
+available:
+- **Up to 4 OCPUs (ARM64 Ampere cores) and 24 GB RAM** with 200 GB NVMe storage at $0/month.
+- **10 TB monthly outbound data transfer** on a high-speed network.
+- **Auto-tuned concurrency**: `deploy/oracle-free-bootstrap.sh` automatically detects
+  the instance's cores and RAM, configuring up to 16 parallel yt-dlp workers, 8 concurrent
+  fragments, and up to 4 simultaneous playlist jobs.
+- **Reclamation protection**: installs an automated, low-overhead keepalive daemon
+  (`blade-keepalive.service`) that maintains baseline activity at low priority so
+  Oracle does not reclaim or terminate the idle VM after 7 days.
+- **Instant HTTPS**: automatically provisions an SSL domain via `sslip.io` and Caddy,
+  supporting HTTP/3 and automatic certificate renewals.
 
-Create only an instance marked **Always Free Eligible**, with 2 OCPUs, 12 GB
-RAM, a 50 GB boot volume, and a public IPv4 address. In its VCN security list,
-allow inbound TCP 80 and 443 from the internet and TCP 22 only from your own
-public IP. SSH to the VM as `ubuntu`, then run:
+Create an instance in Oracle Cloud marked **Always Free Eligible** (choose VM.Standard.A1.Flex,
+2 to 4 OCPUs, 12 to 24 GB RAM, 50–200 GB boot volume, and assign a public IPv4 address).
+In your VCN security list, ensure inbound TCP ports 80 and 443 (and UDP 443 for HTTP/3)
+are allowed from `0.0.0.0/0`, and SSH (port 22) is allowed.
+
+SSH to your VM as `ubuntu`, then run:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/OutBlade/youtube-playlist-downloader/main/deploy/oracle-free-bootstrap.sh -o /tmp/blade-bootstrap.sh
 sudo bash /tmp/blade-bootstrap.sh
 ```
 
-Copy the printed `API_DOMAIN` address to your Windows checkout and publish it:
+When bootstrap finishes, connect the GitHub Pages website to your new server:
 
-```powershell
-.\deploy\publish-backend.ps1 -Address https://YOUR_API_DOMAIN
-```
+- **Directly from the server (Linux):**
+  ```sh
+  /opt/blade/deploy/publish-backend.sh https://YOUR_API_DOMAIN
+  ```
+- **Or from your Windows checkout:**
+  ```powershell
+  .\deploy\publish-backend.ps1 -Address https://YOUR_API_DOMAIN
+  ```
 
-Oracle requires account verification with a payment card; its documentation
-says the card is not charged unless the account is upgraded, though a temporary
-verification hold may appear. Keep the instance within the Always Free limits
-and do not upgrade it to a paid account. Oracle may reclaim an Always Free VM
-after seven days when CPU, network, and (for A1) memory utilization remain low,
-so this free setup cannot guarantee uninterrupted hosting for a quiet site.
+Once published, [https://outblade.github.io/youtube-playlist-downloader/](https://outblade.github.io/youtube-playlist-downloader/)
+will automatically discover and connect to your fast free cloud backend.
+
+#### Alternative: 1-click Render free deployment
+
+If you prefer an instant cloud container without setting up a Linux VM, the repository
+includes `render.yaml` for Render's free Docker web service tier. Connect the repository
+in your Render dashboard to deploy. Note that Render's free tier provides 0.1 vCPU and
+512 MB RAM and sleeps after 15 minutes of inactivity; Oracle Cloud Always Free is
+significantly faster and has no cold starts.
 
 To run without Docker, install yt-dlp, ffmpeg and Deno, then launch
 `ytplaylist-web` (`ytplaylist-web.exe` on Windows) beside its `web/` folder.

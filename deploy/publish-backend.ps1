@@ -1,8 +1,10 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidatePattern('^https://[a-z0-9.-]+$')]
+    [ValidatePattern('^https://[a-zA-Z0-9.-]+(:[0-9]+)?/?$')]
     [string]$Address
 )
+
+$Address = $Address.TrimEnd('/')
 
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')

@@ -1,0 +1,29 @@
+# Optional 1-click deployment blueprint for Render.com Free Tier
+# Note: For maximum speed and no sleeping, Oracle Cloud Always Free Ampere A1
+# (4 OCPUs, 24 GB RAM, 10 TB bandwidth) is the recommended fastest free server.
+# This Render configuration is provided as an instant zero-card fallback.
+services:
+  - type: web
+    name: youtube-playlist-downloader
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: ALLOWED_ORIGIN
+        value: https://outblade.github.io
+      - key: TRUST_PROXY
+        value: "1"
+      - key: WORKERS
+        value: "4"
+      - key: FRAGMENTS
+        value: "4"
+      - key: MAX_ACTIVE_JOBS
+        value: "1"
+      - key: QUEUE_LIMIT
+        value: "50"
